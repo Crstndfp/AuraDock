@@ -32,6 +32,10 @@ int main(int argc, char *argv[]) {
     auto initialItems = xdgRepo.getDefaultPinnedApps();
     dockController->setItems(std::move(initialItems));
 
+    // Connect and start native Wayland window tracking
+    dockController->setWindowTracker(kwinTracker.get());
+    kwinTracker->start();
+
     // Handle launcher activation
     QObject::connect(dockController.get(), &cachy_dock::application::DockController::itemActivated,
                      [&xdgRepo](const QString &id) {

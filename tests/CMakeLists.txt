@@ -6,6 +6,7 @@ add_executable(cachy_dock_tests
     test_bounce_physics.cpp
     test_autohide_statemachine.cpp
     test_xdg_desktop_repository.cpp
+    test_dock_window_tracking.cpp
 )
 
 target_link_libraries(cachy_dock_tests PRIVATE

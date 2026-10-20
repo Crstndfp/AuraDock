@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "domain/entities/DockItem.hpp"
+#include "domain/interfaces/IWindowTracker.hpp"
 #include "domain/services/ParabolicMagnificationEngine.hpp"
 #include "domain/services/BouncePhysicsSolver.hpp"
 #include "domain/services/SmartAutoHideStateMachine.hpp"
@@ -102,10 +103,9 @@ public:
     void addItem(domain::entities::DockItem item);
     void setItems(std::vector<domain::entities::DockItem> items);
 
-    // Window state updates from tracker
-    void updateWindowStates(const std::string& activeAppId,
-                            const std::vector<std::string>& runningAppIds,
-                            bool hasMaximizedOnScreen);
+    // Window Tracker Integration
+    void setWindowTracker(domain::interfaces::IWindowTracker* tracker);
+    void syncOpenWindows();
 
 signals:
     void layoutChanged();
@@ -120,8 +120,11 @@ private slots:
 
 private:
     void recomputeLayout();
+    int findSeparatorIndex() const;
 
     std::vector<domain::entities::DockItem> m_items;
+    domain::interfaces::IWindowTracker* m_windowTracker{nullptr};
+
     domain::services::ParabolicMagnificationEngine m_waveEngine;
     domain::services::BouncePhysicsSolver m_bounceSolver;
     domain::services::SmartAutoHideStateMachine m_autoHideSM;

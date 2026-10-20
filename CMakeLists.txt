@@ -15,6 +15,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Quick Qml DBus)
 find_package(KF6WindowSystem REQUIRED)
 find_package(KF6Service REQUIRED)
 find_package(LayerShellQt REQUIRED)
+find_package(LibTaskManager REQUIRED)
 
 # Domain, Application & Infrastructure library
 add_library(cachy_dock_core
@@ -40,6 +41,7 @@ target_link_libraries(cachy_dock_core PUBLIC
     KF6::WindowSystem
     KF6::Service
     LayerShellQt::Interface
+    PW::LibTaskManager
 )
 
 # Main Executable

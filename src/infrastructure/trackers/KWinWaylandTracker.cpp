@@ -1,5 +1,6 @@
 #include "infrastructure/trackers/KWinWaylandTracker.hpp"
-#include <QDBusMessage>
+#include <taskmanager/tasksmodel.h>
+#include <taskmanager/abstracttasksmodel.h>
 #include <QDebug>
 #include <algorithm>
 
@@ -13,11 +14,27 @@ KWinWaylandTracker::~KWinWaylandTracker() {
 }
 
 void KWinWaylandTracker::start() {
+    if (m_isRunning) {
+        return;
+    }
     m_isRunning = true;
+
+    m_tasksModel = new TaskManager::TasksModel(this);
+
+    connect(m_tasksModel, &QAbstractItemModel::rowsInserted, this, &KWinWaylandTracker::onTasksUpdated);
+    connect(m_tasksModel, &QAbstractItemModel::rowsRemoved, this, &KWinWaylandTracker::onTasksUpdated);
+    connect(m_tasksModel, &QAbstractItemModel::dataChanged, this, &KWinWaylandTracker::onTasksUpdated);
+    connect(m_tasksModel, &QAbstractItemModel::modelReset, this, &KWinWaylandTracker::onTasksUpdated);
+
+    onTasksUpdated();
 }
 
 void KWinWaylandTracker::stop() {
     m_isRunning = false;
+    if (m_tasksModel) {
+        delete m_tasksModel;
+        m_tasksModel = nullptr;
+    }
 }
 
 std::vector<domain::entities::WindowInstance> KWinWaylandTracker::getWindows() const {
@@ -30,34 +47,52 @@ bool KWinWaylandTracker::hasMaximizedWindowOnScreen(const std::string& screenNam
 }
 
 void KWinWaylandTracker::activateWindow(uint64_t windowId) {
-    for (auto &win : m_windows) {
-        win.isActive = (win.id == windowId);
-    }
-    if (m_onActiveWindowChanged) {
-        m_onActiveWindowChanged(windowId);
+    if (m_tasksModel && windowId < static_cast<uint64_t>(m_tasksModel->rowCount())) {
+        const auto idx = m_tasksModel->index(static_cast<int>(windowId), 0);
+        m_tasksModel->requestActivate(idx);
     }
 }
 
-void KWinWaylandTracker::closeWindow(uint64_t windowId) {
-    auto it = std::remove_if(m_windows.begin(), m_windows.end(), [windowId](const auto &win) {
-        return win.id == windowId;
-    });
-    if (it != m_windows.end()) {
-        m_windows.erase(it, m_windows.end());
-        if (m_onWindowsChanged) {
-            m_onWindowsChanged();
+void KWinWaylandTracker::activateApp(const std::string& appId) {
+    if (!m_tasksModel) {
+        return;
+    }
+
+    const QString target = QString::fromStdString(appId);
+
+    for (int r = 0; r < m_tasksModel->rowCount(); ++r) {
+        const auto idx = m_tasksModel->index(r, 0);
+        const QString rowAppId = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::AppId).toString();
+        const QString launcherUrl = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::LauncherUrlWithoutIcon).toString();
+
+        if (rowAppId == target || target.contains(rowAppId) || launcherUrl.contains(target)) {
+            m_tasksModel->requestActivate(idx);
+            return;
         }
     }
 }
 
+void KWinWaylandTracker::closeWindow(uint64_t windowId) {
+    if (m_tasksModel && windowId < static_cast<uint64_t>(m_tasksModel->rowCount())) {
+        const auto idx = m_tasksModel->index(static_cast<int>(windowId), 0);
+        m_tasksModel->requestClose(idx);
+    }
+}
+
 void KWinWaylandTracker::closeAllWindowsForApp(const std::string& appId) {
-    auto it = std::remove_if(m_windows.begin(), m_windows.end(), [&appId](const auto &win) {
-        return win.appId == appId;
-    });
-    if (it != m_windows.end()) {
-        m_windows.erase(it, m_windows.end());
-        if (m_onWindowsChanged) {
-            m_onWindowsChanged();
+    if (!m_tasksModel) {
+        return;
+    }
+
+    const QString target = QString::fromStdString(appId);
+
+    for (int r = 0; r < m_tasksModel->rowCount(); ++r) {
+        const auto idx = m_tasksModel->index(r, 0);
+        const QString rowAppId = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::AppId).toString();
+        const QString launcherUrl = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::LauncherUrlWithoutIcon).toString();
+
+        if (rowAppId == target || target.contains(rowAppId) || launcherUrl.contains(target)) {
+            m_tasksModel->requestClose(idx);
         }
     }
 }
@@ -66,12 +101,71 @@ void KWinWaylandTracker::setOnWindowsChanged(std::function<void()> callback) {
     m_onWindowsChanged = std::move(callback);
 }
 
-void KWinWaylandTracker::setOnActiveWindowChanged(std::function<void(uint64_t)> callback) {
+void KWinWaylandTracker::setOnActiveWindowChanged(std::function<void(const std::string&)> callback) {
     m_onActiveWindowChanged = std::move(callback);
 }
 
-void KWinWaylandTracker::setOnMaximizedStateChanged(std::function<void(const std::string& screenName, bool hasMaximized)> callback) {
+void KWinWaylandTracker::setOnMaximizedStateChanged(std::function<void(const std::string&, bool)> callback) {
     m_onMaximizedStateChanged = std::move(callback);
+}
+
+void KWinWaylandTracker::onTasksUpdated() {
+    if (!m_tasksModel) {
+        return;
+    }
+
+    std::vector<domain::entities::WindowInstance> windows;
+    bool hasMaximized = false;
+    std::string activeApp;
+
+    for (int r = 0; r < m_tasksModel->rowCount(); ++r) {
+        const auto idx = m_tasksModel->index(r, 0);
+
+        const QString appId = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::AppId).toString();
+        const QString appName = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::AppName).toString();
+        const QString genericName = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::GenericName).toString();
+        const bool isActive = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsActive).toBool();
+        const bool isMaximized = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsMaximized).toBool();
+        const bool isMinimized = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsMinimized).toBool();
+        const bool isFullscreen = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsFullScreen).toBool();
+        const int childCount = std::max(1, m_tasksModel->data(idx, TaskManager::AbstractTasksModel::ChildCount).toInt());
+
+        if (isMaximized || isFullscreen) {
+            hasMaximized = true;
+        }
+
+        if (isActive) {
+            activeApp = appId.toStdString();
+        }
+
+        domain::entities::WindowInstance win{
+            .id = static_cast<uint64_t>(r),
+            .appId = appId.toStdString(),
+            .title = appName.isEmpty() ? (genericName.isEmpty() ? appId.toStdString() : genericName.toStdString()) : appName.toStdString(),
+            .iconName = appId.toStdString(),
+            .isMaximized = isMaximized,
+            .isMinimized = isMinimized,
+            .isFullscreen = isFullscreen,
+            .isActive = isActive,
+            .windowCount = childCount,
+            .screenName = ""
+        };
+        windows.push_back(std::move(win));
+    }
+
+    m_windows = std::move(windows);
+    m_hasMaximizedOnCurrentScreen = hasMaximized;
+    m_activeAppId = activeApp;
+
+    if (m_onWindowsChanged) {
+        m_onWindowsChanged();
+    }
+    if (m_onActiveWindowChanged) {
+        m_onActiveWindowChanged(m_activeAppId);
+    }
+    if (m_onMaximizedStateChanged) {
+        m_onMaximizedStateChanged("", m_hasMaximizedOnCurrentScreen);
+    }
 }
 
 void KWinWaylandTracker::simulateWindowChange(const std::vector<domain::entities::WindowInstance>& windows) {

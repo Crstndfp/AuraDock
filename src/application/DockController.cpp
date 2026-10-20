@@ -1,8 +1,26 @@
 #include "application/DockController.hpp"
+#include <QFileInfo>
 #include <QDebug>
 #include <algorithm>
 
 namespace cachy_dock::application {
+
+static bool matchesAppId(const std::string& itemId, const std::string& windowAppId) {
+    if (itemId.empty() || windowAppId.empty()) {
+        return false;
+    }
+    if (itemId == windowAppId) {
+        return true;
+    }
+    QString qItem = QString::fromStdString(itemId);
+    QString qWin = QString::fromStdString(windowAppId);
+
+    QString itemBase = QFileInfo(qItem).completeBaseName();
+    if (itemBase == qWin || itemBase.endsWith(qWin) || qWin.endsWith(itemBase)) {
+        return true;
+    }
+    return false;
+}
 
 DockController::DockController(QObject *parent)
     : QAbstractListModel(parent) {
@@ -149,7 +167,6 @@ int DockController::itemAt(double x, double y) const {
         const double left = tr.x - halfSpacing;
         const double right = tr.x + tr.width + halfSpacing;
 
-        // Reach from top of icon down to the baseline plus padding
         const double top = tr.y - 12.0;
         const double bottom = baselineY + 16.0;
 
@@ -177,15 +194,144 @@ QVariantMap DockController::getItemDetails(int index) const {
     };
 }
 
+void DockController::setWindowTracker(domain::interfaces::IWindowTracker* tracker) {
+    m_windowTracker = tracker;
+    if (!m_windowTracker) {
+        return;
+    }
+
+    m_windowTracker->setOnWindowsChanged([this]() {
+        syncOpenWindows();
+    });
+
+    m_windowTracker->setOnActiveWindowChanged([this](const std::string& activeApp) {
+        Q_UNUSED(activeApp);
+        syncOpenWindows();
+    });
+
+    m_windowTracker->setOnMaximizedStateChanged([this](const std::string& screen, bool hasMaximized) {
+        Q_UNUSED(screen);
+        m_autoHideSM.onMaximizedWindowChanged(hasMaximized);
+        emit autoHideStateChanged();
+    });
+
+    syncOpenWindows();
+}
+
+int DockController::findSeparatorIndex() const {
+    for (size_t i = 0; i < m_items.size(); ++i) {
+        if (m_items[i].type == domain::entities::DockItemType::Separator) {
+            return static_cast<int>(i);
+        }
+    }
+    return static_cast<int>(m_items.size());
+}
+
+void DockController::syncOpenWindows() {
+    if (!m_windowTracker) {
+        return;
+    }
+
+    const auto openWindows = m_windowTracker->getWindows();
+    const bool hasMaximized = m_windowTracker->hasMaximizedWindowOnScreen("");
+    m_autoHideSM.onMaximizedWindowChanged(hasMaximized);
+    emit autoHideStateChanged();
+
+    bool modelChanged = false;
+
+    // 1. Update status of existing pinned and unpinned items
+    for (size_t i = 0; i < m_items.size(); ++i) {
+        auto &item = m_items[i];
+        if (item.type == domain::entities::DockItemType::Separator ||
+            item.type == domain::entities::DockItemType::DocumentStack) {
+            continue;
+        }
+
+        bool running = false;
+        bool focused = false;
+        int winCount = 0;
+
+        for (const auto &win : openWindows) {
+            if (matchesAppId(item.id, win.appId)) {
+                running = true;
+                if (win.isActive) {
+                    focused = true;
+                }
+                winCount += win.windowCount;
+            }
+        }
+
+        if (item.isRunning != running || item.isFocused != focused || item.runningWindowCount != winCount) {
+            item.isRunning = running;
+            item.isFocused = focused;
+            item.runningWindowCount = winCount;
+            const auto idx = createIndex(static_cast<int>(i), 0);
+            emit dataChanged(idx, idx, {IsRunningRole, IsFocusedRole, RunningWindowCountRole});
+        }
+    }
+
+    // 2. Remove any unpinned items that are no longer running
+    for (int i = static_cast<int>(m_items.size()) - 1; i >= 0; --i) {
+        if (!m_items[i].isPinned && !m_items[i].isRunning) {
+            beginRemoveRows(QModelIndex(), i, i);
+            m_items.erase(m_items.begin() + i);
+            endRemoveRows();
+            modelChanged = true;
+        }
+    }
+
+    // 3. For any open window that does not correspond to an existing dock item, add it as unpinned running app
+    for (const auto &win : openWindows) {
+        bool alreadyInDock = false;
+        for (const auto &item : m_items) {
+            if (matchesAppId(item.id, win.appId)) {
+                alreadyInDock = true;
+                break;
+            }
+        }
+
+        if (!alreadyInDock && !win.appId.empty()) {
+            domain::entities::DockItem newItem{
+                .id = win.appId,
+                .name = win.title.empty() ? win.appId : win.title,
+                .iconName = win.iconName.empty() ? win.appId : win.iconName,
+                .type = domain::entities::DockItemType::AppLauncher,
+                .isPinned = false,
+                .isRunning = true,
+                .isFocused = win.isActive,
+                .runningWindowCount = win.windowCount
+            };
+
+            const int insertIndex = findSeparatorIndex();
+            beginInsertRows(QModelIndex(), insertIndex, insertIndex);
+            m_items.insert(m_items.begin() + insertIndex, std::move(newItem));
+            endInsertRows();
+            modelChanged = true;
+        }
+    }
+
+    if (modelChanged) {
+        recomputeLayout();
+    }
+}
+
 void DockController::launchItem(int index) {
     if (index < 0 || index >= static_cast<int>(m_items.size())) {
         return;
     }
 
     auto &item = m_items[index];
+
+    if (item.isRunning && m_windowTracker) {
+        // Raise and activate window directly via Wayland TasksModel
+        m_windowTracker->activateApp(item.id);
+        return;
+    }
+
+    // Launch non-running app
     emit itemActivated(QString::fromStdString(item.id));
 
-    // Trigger bounce animation if app is not already bouncing
+    // Trigger launch bounce animation
     m_bouncingItemIndex = index;
     m_items[index].isBouncing = true;
     m_bounceElapsed.restart();
@@ -203,7 +349,6 @@ void DockController::onBounceTick() {
 
     m_items[m_bouncingItemIndex].bounceOffset = frame.offsetY;
 
-    // Notify model of bounce change for that item
     const auto idx = createIndex(m_bouncingItemIndex, 0);
     emit dataChanged(idx, idx, {BounceOffsetRole, ItemYRole});
 
@@ -275,6 +420,11 @@ void DockController::closeItem(int index) {
     if (index < 0 || index >= static_cast<int>(m_items.size())) {
         return;
     }
+
+    if (m_windowTracker && m_items[index].isRunning) {
+        m_windowTracker->closeAllWindowsForApp(m_items[index].id);
+    }
+
     m_items[index].isRunning = false;
     m_items[index].isFocused = false;
     m_items[index].runningWindowCount = 0;
@@ -302,26 +452,6 @@ void DockController::setItems(std::vector<domain::entities::DockItem> items) {
     m_items = std::move(items);
     endResetModel();
     recomputeLayout();
-}
-
-void DockController::updateWindowStates(const std::string& activeAppId,
-                                        const std::vector<std::string>& runningAppIds,
-                                        bool hasMaximizedOnScreen) {
-    for (size_t i = 0; i < m_items.size(); ++i) {
-        auto &item = m_items[i];
-        const bool running = std::find(runningAppIds.begin(), runningAppIds.end(), item.id) != runningAppIds.end();
-        const bool focused = (item.id == activeAppId);
-
-        if (item.isRunning != running || item.isFocused != focused) {
-            item.isRunning = running;
-            item.isFocused = focused;
-            const auto idx = createIndex(static_cast<int>(i), 0);
-            emit dataChanged(idx, idx, {IsRunningRole, IsFocusedRole});
-        }
-    }
-
-    m_autoHideSM.onMaximizedWindowChanged(hasMaximizedOnScreen);
-    emit autoHideStateChanged();
 }
 
 void DockController::recomputeLayout() {
