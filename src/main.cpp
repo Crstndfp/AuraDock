@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QDebug>
 #include <QIcon>
+#include <LayerShellQt/Window>
 
 #include "application/DockController.hpp"
 #include "infrastructure/xdg/XdgDesktopRepository.hpp"
@@ -62,10 +63,32 @@ int main(int argc, char *argv[]) {
 
         auto *window = qobject_cast<QQuickWindow*>(obj);
         if (window) {
+            auto *lWindow = LayerShellQt::Window::get(window);
+            if (lWindow) {
+                lWindow->setScope(QStringLiteral("cachy-dock"));
+                lWindow->setLayer(LayerShellQt::Window::LayerTop);
+                LayerShellQt::Window::Anchors anchors;
+                anchors.setFlag(LayerShellQt::Window::AnchorBottom);
+                anchors.setFlag(LayerShellQt::Window::AnchorLeft);
+                anchors.setFlag(LayerShellQt::Window::AnchorRight);
+                lWindow->setAnchors(anchors);
+                lWindow->setExclusiveZone(static_cast<int32_t>(dockController->exclusiveZone()));
+                lWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+
+                QObject::connect(dockController, &cachy_dock::application::DockController::autoHideStateChanged,
+                                 window, [lWindow, dockController]() {
+                    lWindow->setExclusiveZone(static_cast<int32_t>(dockController->exclusiveZone()));
+                });
+                qDebug() << "[CachyDock] LayerShell window configured on LayerTop.";
+            }
+
             maskSynchronizer = std::make_unique<cachy_dock::infrastructure::wayland::WaylandSurfaceMaskSynchronizer>(window);
             QObject::connect(dockController, &cachy_dock::application::DockController::maskUpdateRequired,
                              maskSynchronizer.get(), &cachy_dock::infrastructure::wayland::WaylandSurfaceMaskSynchronizer::updateSurfaceMasks);
-            qDebug() << "[CachyDock] WaylandSurfaceMaskSynchronizer hooked to root window.";
+
+            window->setVisible(true);
+            window->show();
+            qDebug() << "[CachyDock] Window shown. Geometry:" << window->geometry() << "Visible:" << window->isVisible();
         }
     }, Qt::QueuedConnection);
 

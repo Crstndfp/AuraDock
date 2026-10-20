@@ -4,18 +4,20 @@ import org.kde.layershell as LayerShell
 
 Window {
     id: root
+    visible: true
 
-    // Dock dimensions
-    width: Screen.width
+    // Dock dimensions across output
+    width: Screen.width > 0 ? Screen.width : 1920
     height: 180
     color: "transparent"
-    flags: Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus
+    flags: Qt.FramelessWindowHint
 
     // Wayland LayerShell configuration for KWin and wlroots compositors
     LayerShell.Window.anchors: LayerShell.Window.AnchorBottom | LayerShell.Window.AnchorLeft | LayerShell.Window.AnchorRight
     LayerShell.Window.layer: LayerShell.Window.LayerTop
     LayerShell.Window.exclusionZone: Math.round(dockController.exclusiveZone)
     LayerShell.Window.scope: "cachy-dock"
+    LayerShell.Window.keyboardInteractivity: LayerShell.Window.KeyboardInteractivityNone
 
     Component.onCompleted: {
         dockController.surfaceWidth = root.width;
@@ -123,7 +125,6 @@ Window {
             }
 
             onLaunchOnDiscreteGpu: function(idx) {
-                // Launch app with DRI_PRIME=1
                 dockController.launchItem(idx);
             }
 
