@@ -5,19 +5,26 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+
 # Optimization flags for CachyOS x86_64
 add_compile_options(-Wall -Wextra -Wpedantic -O3)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Quick Qml)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Quick Qml DBus)
 find_package(KF6WindowSystem REQUIRED)
 find_package(KF6Service REQUIRED)
 find_package(LayerShellQt REQUIRED)
 
-# Core domain & application library
+# Domain, Application & Infrastructure library
 add_library(cachy_dock_core
     src/domain/services/ParabolicMagnificationEngine.cpp
     src/domain/services/BouncePhysicsSolver.cpp
     src/domain/services/SmartAutoHideStateMachine.cpp
+    src/application/DockController.cpp
+    src/infrastructure/wayland/WaylandSurfaceMaskSynchronizer.cpp
+    src/infrastructure/trackers/KWinWaylandTracker.cpp
+    src/infrastructure/xdg/XdgDesktopRepository.cpp
 )
 
 target_include_directories(cachy_dock_core PUBLIC
@@ -26,6 +33,26 @@ target_include_directories(cachy_dock_core PUBLIC
 
 target_link_libraries(cachy_dock_core PUBLIC
     Qt6::Core
+    Qt6::Gui
+    Qt6::Quick
+    Qt6::Qml
+    Qt6::DBus
+    KF6::WindowSystem
+    KF6::Service
+    LayerShellQt::Interface
+)
+
+# Main Executable
+add_executable(cachy-dock
+    src/main.cpp
+)
+
+target_compile_definitions(cachy-dock PRIVATE
+    CACHY_DOCK_QML_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/ui/qml"
+)
+
+target_link_libraries(cachy-dock PRIVATE
+    cachy_dock_core
 )
 
 # Unit Tests
