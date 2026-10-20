@@ -24,6 +24,33 @@ TEST(ParabolicMagnificationEngineTest, WhenNoCursorPresent_AllIconsRemainBaseSca
     EXPECT_GT(result.pillGeometry.height, 0.0);
 }
 
+TEST(ParabolicMagnificationEngineTest, WhenCursorIs20pxAboveIcon_DoesNotMagnify) {
+    ParabolicMagnificationEngine engine;
+    const size_t itemCount = 5;
+    const double surfaceWidth = 1920.0;
+    const double surfaceHeight = 180.0;
+
+    auto initialResult = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, std::nullopt);
+    double middleIconCenterX = initialResult.iconTransforms[2].x + (initialResult.iconTransforms[2].width / 2.0);
+
+    // Unmagnified icon top is at 120.0 (baseline 168 - 48 = 120).
+    // Place cursor 20px above unmagnified icon top (y = 100.0)
+    Point2D cursorAbove{.x = middleIconCenterX, .y = 100.0};
+    auto resultAbove = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, cursorAbove);
+
+    EXPECT_FALSE(resultAbove.isMagnified);
+    for (const auto& item : resultAbove.iconTransforms) {
+        EXPECT_DOUBLE_EQ(item.scale, 1.0);
+    }
+
+    // Now place cursor directly on the icon (y = 120.0)
+    Point2D cursorOnIcon{.x = middleIconCenterX, .y = 120.0};
+    auto resultOnIcon = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, cursorOnIcon);
+
+    EXPECT_TRUE(resultOnIcon.isMagnified);
+    EXPECT_GT(resultOnIcon.iconTransforms[2].scale, 1.0);
+}
+
 TEST(ParabolicMagnificationEngineTest, WhenCursorDirectlyOverIcon_IconReceivesMaxScale) {
     ParabolicMagnificationEngine engine;
     const size_t itemCount = 5;

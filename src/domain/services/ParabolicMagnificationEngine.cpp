@@ -26,7 +26,7 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     double surfaceWidth,
     double surfaceHeight,
     const std::optional<Point2D>& cursorPosition
-) const {
+) {
     MagnificationResult result;
     result.iconTransforms.resize(itemCount);
 
@@ -39,6 +39,7 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
             .cornerRadius = 20.0
         };
         result.isMagnified = false;
+        m_wasMagnified = false;
         return result;
     }
 
@@ -53,20 +54,47 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
                          (m_config.baseIconSize / 2.0);
     }
 
-    // Determine if pointer is within active dock interaction area
+    // Step 2: Determine if pointer is directly on the icon/dock
+    const double baselineY = surfaceHeight - m_config.baselineOffsetFromBottom;
+    const double unmagnifiedIconTopY = baselineY - m_config.baseIconSize; // e.g. 168 - 48 = 120.0
+    const double maxMagnifiedIconTopY = baselineY - (m_config.baseIconSize * m_config.maxScale); // e.g. 168 - 81.6 = 86.4
+
+    const double pillLeft = unmagnifiedStartX - m_config.pillPaddingX;
+    const double pillRight = unmagnifiedStartX + unmagnifiedTotalWidth + m_config.pillPaddingX;
+
     bool cursorActive = false;
     double cursorX = 0.0;
+
     if (cursorPosition.has_value()) {
-        const double topY = surfaceHeight - m_config.activeVerticalReach;
-        if (cursorPosition->y >= topY && cursorPosition->y <= (surfaceHeight + 20.0)) {
-            cursorActive = true;
-            cursorX = cursorPosition->x;
+        const double cx = cursorPosition->x;
+        const double cy = cursorPosition->y;
+
+        // Horizontally within the dock pill range (with small tolerance)
+        const double currentPillLeft = m_wasMagnified ? (pillLeft - 30.0) : (pillLeft - 8.0);
+        const double currentPillRight = m_wasMagnified ? (pillRight + 30.0) : (pillRight + 8.0);
+
+        if (cx >= currentPillLeft && cx <= currentPillRight && cy <= (surfaceHeight + 20.0)) {
+            if (m_wasMagnified) {
+                // Once magnified, the active vertical region extends up to the top of the expanded icon
+                if (cy >= (maxMagnifiedIconTopY - 4.0)) {
+                    cursorActive = true;
+                    cursorX = cx;
+                }
+            } else {
+                // When unmagnified, ONLY activate when the cursor is directly on the icon/pill top
+                // (no activation 20px above the icon)
+                if (cy >= (unmagnifiedIconTopY - 2.0)) {
+                    cursorActive = true;
+                    cursorX = cx;
+                }
+            }
         }
     }
 
+    m_wasMagnified = cursorActive;
     result.isMagnified = cursorActive;
 
-    // Step 2: Compute scale factors for each icon
+    // Step 3: Compute scale factors for each icon
     std::vector<double> scales(itemCount, 1.0);
     if (cursorActive) {
         for (size_t i = 0; i < itemCount; ++i) {
@@ -75,7 +103,7 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
         }
     }
 
-    // Step 3: Compute dynamically displaced widths and positions
+    // Step 4: Compute dynamically displaced widths and positions
     std::vector<double> scaledWidths(itemCount);
     double totalScaledWidth = 0.0;
     for (size_t i = 0; i < itemCount; ++i) {
@@ -86,8 +114,6 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
 
     const double startX = (surfaceWidth - totalScaledWidth) / 2.0;
     double currentX = startX;
-
-    const double baselineY = surfaceHeight - m_config.baselineOffsetFromBottom;
 
     for (size_t i = 0; i < itemCount; ++i) {
         const double width = scaledWidths[i];
@@ -106,7 +132,7 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
         currentX += width + m_config.itemSpacing;
     }
 
-    // Step 4: Glassmorphic pill geometry bounds (anchored at base icon size)
+    // Step 5: Glassmorphic pill geometry bounds (anchored at base icon size)
     const double pillHeight = m_config.baseIconSize + (m_config.pillPaddingY * 2.0);
     const double pillY = surfaceHeight - pillHeight - (m_config.baselineOffsetFromBottom / 2.0);
     const double pillX = startX - m_config.pillPaddingX;

@@ -41,7 +41,7 @@ struct ParabolicConfig {
     double pillPaddingX{14.0};
     double pillPaddingY{8.0};
     double baselineOffsetFromBottom{12.0};
-    double activeVerticalReach{140.0};
+    double activeVerticalReach{68.0};
 };
 
 class ParabolicMagnificationEngine {
@@ -59,12 +59,15 @@ public:
         double surfaceWidth,
         double surfaceHeight,
         const std::optional<Point2D>& cursorPosition
-    ) const;
+    );
 
     [[nodiscard]] double computeScaleAtDistance(double distance) const noexcept;
 
+    void resetState() noexcept { m_wasMagnified = false; }
+
 private:
     Config m_config;
+    bool m_wasMagnified{false};
 };
 
 } // namespace cachy_dock::domain::services
