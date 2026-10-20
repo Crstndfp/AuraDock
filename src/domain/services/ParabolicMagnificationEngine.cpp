@@ -57,9 +57,8 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     bool cursorActive = false;
     double cursorX = 0.0;
     if (cursorPosition.has_value()) {
-        const double bottomY = surfaceHeight;
         const double topY = surfaceHeight - m_config.activeVerticalReach;
-        if (cursorPosition->y >= topY && cursorPosition->y <= bottomY) {
+        if (cursorPosition->y >= topY && cursorPosition->y <= (surfaceHeight + 20.0)) {
             cursorActive = true;
             cursorX = cursorPosition->x;
         }

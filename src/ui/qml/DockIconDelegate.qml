@@ -19,9 +19,6 @@ Item {
     required property real itemWidth
     required property real itemHeight
 
-    signal launched(int itemIndex)
-    signal contextMenuRequested(int itemIndex, real globalX, real globalY)
-
     x: itemX
     y: itemY
     width: itemWidth
@@ -108,22 +105,6 @@ Item {
                 color: Qt.rgba(1, 1, 1, 0.3)
                 z: -1
                 visible: root.isFocused
-            }
-        }
-    }
-
-    // Interactive MouseArea
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        hoverEnabled: true
-
-        onClicked: function(mouse) {
-            if (mouse.button === Qt.LeftButton) {
-                root.launched(root.index);
-            } else if (mouse.button === Qt.RightButton) {
-                var globalPos = mapToItem(null, mouse.x, mouse.y);
-                root.contextMenuRequested(root.index, globalPos.x, globalPos.y);
             }
         }
     }

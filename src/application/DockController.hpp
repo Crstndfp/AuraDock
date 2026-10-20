@@ -5,6 +5,7 @@
 #include <QRectF>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QVariantMap>
 #include <memory>
 #include <vector>
 
@@ -24,6 +25,7 @@ class DockController : public QAbstractListModel {
     Q_PROPERTY(double pillHeight READ pillHeight NOTIFY layoutChanged)
     Q_PROPERTY(double pillRadius READ pillRadius NOTIFY layoutChanged)
     Q_PROPERTY(bool isMagnified READ isMagnified NOTIFY layoutChanged)
+    Q_PROPERTY(int hoveredItemIndex READ hoveredItemIndex NOTIFY hoveredItemIndexChanged)
 
     Q_PROPERTY(double exclusiveZone READ exclusiveZone NOTIFY autoHideStateChanged)
     Q_PROPERTY(double targetYOffset READ targetYOffset NOTIFY autoHideStateChanged)
@@ -65,6 +67,7 @@ public:
     [[nodiscard]] double pillHeight() const noexcept { return m_lastLayout.pillGeometry.height; }
     [[nodiscard]] double pillRadius() const noexcept { return m_lastLayout.pillGeometry.cornerRadius; }
     [[nodiscard]] bool isMagnified() const noexcept { return m_lastLayout.isMagnified; }
+    [[nodiscard]] int hoveredItemIndex() const noexcept { return m_hoveredItemIndex; }
 
     [[nodiscard]] double exclusiveZone() const noexcept;
     [[nodiscard]] double targetYOffset() const noexcept;
@@ -79,6 +82,9 @@ public:
     // QML Invokables for pointer and interaction
     Q_INVOKABLE void updateCursor(double x, double y);
     Q_INVOKABLE void clearCursor();
+    Q_INVOKABLE int itemAt(double x, double y) const;
+    Q_INVOKABLE QVariantMap getItemDetails(int index) const;
+
     Q_INVOKABLE void launchItem(int index);
     Q_INVOKABLE void pointerEnteredDock();
     Q_INVOKABLE void pointerLeftDock();
@@ -103,6 +109,7 @@ public:
 
 signals:
     void layoutChanged();
+    void hoveredItemIndexChanged();
     void autoHideStateChanged();
     void surfaceDimensionsChanged();
     void maskUpdateRequired(const QRectF &pillRect, const std::vector<QRectF> &activeIconRects);
@@ -121,6 +128,7 @@ private:
 
     domain::services::MagnificationResult m_lastLayout;
     std::optional<domain::services::Point2D> m_cursor;
+    int m_hoveredItemIndex{-1};
 
     double m_surfaceWidth{1920.0};
     double m_surfaceHeight{180.0};

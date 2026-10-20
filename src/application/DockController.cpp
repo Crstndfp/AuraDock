@@ -132,6 +132,51 @@ void DockController::clearCursor() {
     }
 }
 
+int DockController::itemAt(double x, double y) const {
+    if (m_lastLayout.iconTransforms.empty()) {
+        return -1;
+    }
+
+    const double baselineY = m_surfaceHeight - m_waveEngine.getConfig().baselineOffsetFromBottom;
+
+    for (size_t i = 0; i < m_lastLayout.iconTransforms.size(); ++i) {
+        if (i >= m_items.size()) break;
+        if (m_items[i].type == domain::entities::DockItemType::Separator) continue;
+
+        const auto &tr = m_lastLayout.iconTransforms[i];
+
+        const double halfSpacing = m_waveEngine.getConfig().itemSpacing / 2.0;
+        const double left = tr.x - halfSpacing;
+        const double right = tr.x + tr.width + halfSpacing;
+
+        // Reach from top of icon down to the baseline plus padding
+        const double top = tr.y - 12.0;
+        const double bottom = baselineY + 16.0;
+
+        if (x >= left && x <= right && y >= top && y <= bottom) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+QVariantMap DockController::getItemDetails(int index) const {
+    if (index < 0 || index >= static_cast<int>(m_items.size())) {
+        return {};
+    }
+    const auto &item = m_items[index];
+    return {
+        {QStringLiteral("id"), QString::fromStdString(item.id)},
+        {QStringLiteral("name"), QString::fromStdString(item.name)},
+        {QStringLiteral("iconName"), QString::fromStdString(item.iconName)},
+        {QStringLiteral("type"), static_cast<int>(item.type)},
+        {QStringLiteral("isPinned"), item.isPinned},
+        {QStringLiteral("isRunning"), item.isRunning},
+        {QStringLiteral("isFocused"), item.isFocused},
+        {QStringLiteral("runningWindowCount"), item.runningWindowCount}
+    };
+}
+
 void DockController::launchItem(int index) {
     if (index < 0 || index >= static_cast<int>(m_items.size())) {
         return;
@@ -230,13 +275,11 @@ void DockController::closeItem(int index) {
     if (index < 0 || index >= static_cast<int>(m_items.size())) {
         return;
     }
-    // Mark as not running
     m_items[index].isRunning = false;
     m_items[index].isFocused = false;
     m_items[index].runningWindowCount = 0;
 
     if (!m_items[index].isPinned) {
-        // If not pinned, remove from dock
         beginRemoveRows(QModelIndex(), index, index);
         m_items.erase(m_items.begin() + index);
         endRemoveRows();
@@ -284,6 +327,15 @@ void DockController::updateWindowStates(const std::string& activeAppId,
 void DockController::recomputeLayout() {
     m_lastLayout = m_waveEngine.computeLayout(m_items.size(), m_surfaceWidth, m_surfaceHeight, m_cursor);
 
+    int newHoveredIndex = -1;
+    if (m_cursor.has_value()) {
+        newHoveredIndex = itemAt(m_cursor->x, m_cursor->y);
+    }
+    if (m_hoveredItemIndex != newHoveredIndex) {
+        m_hoveredItemIndex = newHoveredIndex;
+        emit hoveredItemIndexChanged();
+    }
+
     if (!m_items.empty()) {
         const auto topLeft = createIndex(0, 0);
         const auto bottomRight = createIndex(static_cast<int>(m_items.size() - 1), 0);
@@ -292,7 +344,6 @@ void DockController::recomputeLayout() {
 
     emit layoutChanged();
 
-    // Prepare QRectF coordinates for Wayland mask synchronization
     const QRectF pillRect(m_lastLayout.pillGeometry.x,
                          m_lastLayout.pillGeometry.y,
                          m_lastLayout.pillGeometry.width,

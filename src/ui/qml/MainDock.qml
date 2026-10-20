@@ -61,12 +61,49 @@ Window {
             pillRadius: dockController.pillRadius
         }
 
-        // Active Hover Tracking across the dock region
+        // Icon Items Repeater
+        Repeater {
+            id: dockRepeater
+            model: dockController
+
+            delegate: DockIconDelegate {
+                id: iconDelegate
+            }
+        }
+
+        // macOS Tooltip Pill
+        Rectangle {
+            id: tooltipPill
+            visible: dockController.hoveredItemIndex >= 0 && !contextMenu.isOpen && dockController.isMagnified
+            property var itemData: dockController.hoveredItemIndex >= 0 ? dockController.getItemDetails(dockController.hoveredItemIndex) : null
+            property var iconTransform: (dockController.hoveredItemIndex >= 0 && dockController.hoveredItemIndex < dockRepeater.count) ? dockRepeater.itemAt(dockController.hoveredItemIndex) : null
+
+            x: iconTransform ? (iconTransform.itemX + iconTransform.itemWidth / 2 - width / 2) : 0
+            y: iconTransform ? (iconTransform.itemY - height - 8) : 0
+            width: tooltipText.implicitWidth + 18
+            height: 24
+            radius: 6
+            color: Qt.rgba(0.12, 0.14, 0.18, 0.88)
+            border.color: Qt.rgba(1, 1, 1, 0.22)
+            border.width: 1
+
+            Text {
+                id: tooltipText
+                anchors.centerIn: parent
+                text: tooltipPill.itemData ? tooltipPill.itemData.name : ""
+                color: "#FFFFFF"
+                font.pixelSize: 11
+                font.bold: true
+            }
+        }
+
+        // Master Unified Mouse Area across entire dock surface
+        // Handles continuous hover tracking and clicks without child item stealing
         MouseArea {
             id: dockHoverArea
             anchors.fill: parent
             hoverEnabled: true
-            acceptedButtons: Qt.NoButton
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
 
             onPositionChanged: function(mouse) {
                 dockController.updateCursor(mouse.x, mouse.y);
@@ -80,29 +117,24 @@ Window {
                 dockController.clearCursor();
                 dockController.pointerLeftDock();
             }
-        }
 
-        // Icon Items Repeater
-        Repeater {
-            model: dockController
-
-            delegate: DockIconDelegate {
-                id: iconDelegate
-
-                onLaunched: function(idx) {
-                    dockController.launchItem(idx);
-                }
-
-                onContextMenuRequested: function(idx, gx, gy) {
-                    contextMenu.targetItemIndex = idx;
-                    contextMenu.targetItemName = iconDelegate.name;
-                    contextMenu.targetItemIcon = iconDelegate.iconName;
-                    contextMenu.targetItemIsRunning = iconDelegate.isRunning;
-                    contextMenu.targetItemIsPinned = iconDelegate.isPinned;
-                    contextMenu.targetRunningWindowCount = iconDelegate.runningWindowCount;
-                    contextMenu.targetX = gx;
-                    contextMenu.targetY = gy;
-                    contextMenu.isOpen = true;
+            onClicked: function(mouse) {
+                var itemIndex = dockController.itemAt(mouse.x, mouse.y);
+                if (itemIndex >= 0) {
+                    if (mouse.button === Qt.LeftButton) {
+                        dockController.launchItem(itemIndex);
+                    } else if (mouse.button === Qt.RightButton) {
+                        var details = dockController.getItemDetails(itemIndex);
+                        contextMenu.targetItemIndex = itemIndex;
+                        contextMenu.targetItemName = details.name;
+                        contextMenu.targetItemIcon = details.iconName;
+                        contextMenu.targetItemIsRunning = details.isRunning;
+                        contextMenu.targetItemIsPinned = details.isPinned;
+                        contextMenu.targetRunningWindowCount = details.runningWindowCount;
+                        contextMenu.targetX = mouse.x;
+                        contextMenu.targetY = mouse.y;
+                        contextMenu.isOpen = true;
+                    }
                 }
             }
         }
@@ -111,6 +143,7 @@ Window {
         ContextMenuPopup {
             id: contextMenu
             anchors.fill: parent
+            z: 100
 
             onOpenNewInstance: function(idx) {
                 dockController.launchItem(idx);
@@ -137,6 +170,7 @@ Window {
         DocumentStackPopup {
             id: stackPopup
             anchors.fill: parent
+            z: 100
         }
     }
 
