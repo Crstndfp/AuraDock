@@ -55,7 +55,7 @@ Item {
             sourceSize.height: 128
             smooth: true
             mipmap: true
-            asynchronous: true
+            asynchronous: false
             fillMode: Image.PreserveAspectFit
 
             // Fallback generic placeholder if icon not found
