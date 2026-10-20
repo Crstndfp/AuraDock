@@ -41,7 +41,7 @@ struct ParabolicConfig {
     double pillPaddingX{14.0};
     double pillPaddingY{8.0};
     double baselineOffsetFromBottom{12.0};
-    double activeVerticalReach{68.0};
+    double approachDistance{50.0}; // Vertical approach distance over which scale ramps up smoothly
 };
 
 class ParabolicMagnificationEngine {
@@ -62,6 +62,7 @@ public:
     );
 
     [[nodiscard]] double computeScaleAtDistance(double distance) const noexcept;
+    [[nodiscard]] double computeHorizontalFactorAtDistance(double distance) const noexcept;
 
     void resetState() noexcept { m_wasMagnified = false; }
 

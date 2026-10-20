@@ -15,6 +15,14 @@ Item {
     width: pillWidth
     height: pillHeight
 
+    // Smooth temporal animation on container expansion
+    Behavior on x {
+        NumberAnimation { duration: 50; easing.type: Easing.OutQuad }
+    }
+    Behavior on width {
+        NumberAnimation { duration: 50; easing.type: Easing.OutQuad }
+    }
+
     // Outer drop shadow & ambient glow
     Rectangle {
         anchors.fill: parent

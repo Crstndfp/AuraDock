@@ -24,7 +24,7 @@ TEST(ParabolicMagnificationEngineTest, WhenNoCursorPresent_AllIconsRemainBaseSca
     EXPECT_GT(result.pillGeometry.height, 0.0);
 }
 
-TEST(ParabolicMagnificationEngineTest, WhenCursorIs20pxAboveIcon_DoesNotMagnify) {
+TEST(ParabolicMagnificationEngineTest, WhenCursorApproachesFromAbove_GraduallyMagnifiesAndReachesMaxAtIcon) {
     ParabolicMagnificationEngine engine;
     const size_t itemCount = 5;
     const double surfaceWidth = 1920.0;
@@ -33,22 +33,25 @@ TEST(ParabolicMagnificationEngineTest, WhenCursorIs20pxAboveIcon_DoesNotMagnify)
     auto initialResult = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, std::nullopt);
     double middleIconCenterX = initialResult.iconTransforms[2].x + (initialResult.iconTransforms[2].width / 2.0);
 
-    // Unmagnified icon top is at 120.0 (baseline 168 - 48 = 120).
-    // Place cursor 20px above unmagnified icon top (y = 100.0)
-    Point2D cursorAbove{.x = middleIconCenterX, .y = 100.0};
-    auto resultAbove = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, cursorAbove);
+    // 1. Cursor above the approach zone (y = 60.0): completely unmagnified
+    Point2D cursorFarAbove{.x = middleIconCenterX, .y = 60.0};
+    auto resultFarAbove = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, cursorFarAbove);
+    EXPECT_FALSE(resultFarAbove.isMagnified);
+    EXPECT_DOUBLE_EQ(resultFarAbove.iconTransforms[2].scale, 1.0);
 
-    EXPECT_FALSE(resultAbove.isMagnified);
-    for (const auto& item : resultAbove.iconTransforms) {
-        EXPECT_DOUBLE_EQ(item.scale, 1.0);
-    }
+    // 2. Cursor in the approach zone (y = 95.0): gradual intermediate magnification
+    Point2D cursorApproaching{.x = middleIconCenterX, .y = 95.0};
+    auto resultApproaching = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, cursorApproaching);
+    EXPECT_TRUE(resultApproaching.isMagnified);
+    EXPECT_GT(resultApproaching.iconTransforms[2].scale, 1.0);
+    EXPECT_LT(resultApproaching.iconTransforms[2].scale, 1.7);
 
-    // Now place cursor directly on the icon (y = 120.0)
+    // 3. Cursor reaches top of the icon (y = 120.0): reaches maximum magnification peak
     Point2D cursorOnIcon{.x = middleIconCenterX, .y = 120.0};
     auto resultOnIcon = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, cursorOnIcon);
-
     EXPECT_TRUE(resultOnIcon.isMagnified);
-    EXPECT_GT(resultOnIcon.iconTransforms[2].scale, 1.0);
+    EXPECT_NEAR(resultOnIcon.iconTransforms[2].scale, 1.7, 0.001);
+    EXPECT_GT(resultOnIcon.iconTransforms[2].scale, resultApproaching.iconTransforms[2].scale);
 }
 
 TEST(ParabolicMagnificationEngineTest, WhenCursorDirectlyOverIcon_IconReceivesMaxScale) {
@@ -57,7 +60,6 @@ TEST(ParabolicMagnificationEngineTest, WhenCursorDirectlyOverIcon_IconReceivesMa
     const double surfaceWidth = 1920.0;
     const double surfaceHeight = 180.0;
 
-    // Get unmagnified baseline position of middle icon (index 2)
     auto initialResult = engine.computeLayout(itemCount, surfaceWidth, surfaceHeight, std::nullopt);
     double middleIconCenterX = initialResult.iconTransforms[2].x + (initialResult.iconTransforms[2].width / 2.0);
 

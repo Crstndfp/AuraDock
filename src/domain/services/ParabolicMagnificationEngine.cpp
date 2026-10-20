@@ -11,14 +11,18 @@ ParabolicMagnificationEngine::ParabolicMagnificationEngine()
 ParabolicMagnificationEngine::ParabolicMagnificationEngine(Config config)
     : m_config(std::move(config)) {}
 
-double ParabolicMagnificationEngine::computeScaleAtDistance(double distance) const noexcept {
+double ParabolicMagnificationEngine::computeHorizontalFactorAtDistance(double distance) const noexcept {
     if (distance >= m_config.influenceRadius || distance < 0.0) {
-        return 1.0;
+        return 0.0;
     }
     // Raised-cosine bell curve (smooth C1 derivatives at boundaries 0 and R)
     const double angle = (std::numbers::pi * distance) / (2.0 * m_config.influenceRadius);
     const double cosVal = std::cos(angle);
-    return 1.0 + (m_config.maxScale - 1.0) * (cosVal * cosVal);
+    return cosVal * cosVal;
+}
+
+double ParabolicMagnificationEngine::computeScaleAtDistance(double distance) const noexcept {
+    return 1.0 + (m_config.maxScale - 1.0) * computeHorizontalFactorAtDistance(distance);
 }
 
 MagnificationResult ParabolicMagnificationEngine::computeLayout(
@@ -54,52 +58,46 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
                          (m_config.baseIconSize / 2.0);
     }
 
-    // Step 2: Determine if pointer is directly on the icon/dock
+    // Step 2: Compute smooth vertical approach factor
     const double baselineY = surfaceHeight - m_config.baselineOffsetFromBottom;
     const double unmagnifiedIconTopY = baselineY - m_config.baseIconSize; // e.g. 168 - 48 = 120.0
-    const double maxMagnifiedIconTopY = baselineY - (m_config.baseIconSize * m_config.maxScale); // e.g. 168 - 81.6 = 86.4
+    const double approachStartY = unmagnifiedIconTopY - m_config.approachDistance; // e.g. 120 - 50 = 70.0
 
-    const double pillLeft = unmagnifiedStartX - m_config.pillPaddingX;
-    const double pillRight = unmagnifiedStartX + unmagnifiedTotalWidth + m_config.pillPaddingX;
+    const double pillLeft = unmagnifiedStartX - m_config.pillPaddingX - m_config.influenceRadius;
+    const double pillRight = unmagnifiedStartX + unmagnifiedTotalWidth + m_config.pillPaddingX + m_config.influenceRadius;
 
     bool cursorActive = false;
     double cursorX = 0.0;
+    double verticalFactor = 0.0;
 
     if (cursorPosition.has_value()) {
         const double cx = cursorPosition->x;
         const double cy = cursorPosition->y;
 
-        // Horizontally within the dock pill range (with small tolerance)
-        const double currentPillLeft = m_wasMagnified ? (pillLeft - 30.0) : (pillLeft - 8.0);
-        const double currentPillRight = m_wasMagnified ? (pillRight + 30.0) : (pillRight + 8.0);
-
-        if (cx >= currentPillLeft && cx <= currentPillRight && cy <= (surfaceHeight + 20.0)) {
-            if (m_wasMagnified) {
-                // Once magnified, the active vertical region extends up to the top of the expanded icon
-                if (cy >= (maxMagnifiedIconTopY - 4.0)) {
-                    cursorActive = true;
-                    cursorX = cx;
-                }
+        if (cx >= pillLeft && cx <= pillRight && cy >= approachStartY && cy <= (surfaceHeight + 20.0)) {
+            if (cy >= unmagnifiedIconTopY) {
+                // When cursor is on or below the top of the icon, magnification is at its maximum peak
+                verticalFactor = 1.0;
             } else {
-                // When unmagnified, ONLY activate when the cursor is directly on the icon/pill top
-                // (no activation 20px above the icon)
-                if (cy >= (unmagnifiedIconTopY - 2.0)) {
-                    cursorActive = true;
-                    cursorX = cx;
-                }
+                // Gradual approach: smoothstep ramp from approachStartY to unmagnifiedIconTopY
+                const double t = (cy - approachStartY) / m_config.approachDistance;
+                verticalFactor = t * t * (3.0 - 2.0 * t);
             }
+            cursorActive = (verticalFactor > 0.005);
+            cursorX = cx;
         }
     }
 
     m_wasMagnified = cursorActive;
     result.isMagnified = cursorActive;
 
-    // Step 3: Compute scale factors for each icon
+    // Step 3: Compute scale factors for each icon using combined horizontal + vertical gradients
     std::vector<double> scales(itemCount, 1.0);
     if (cursorActive) {
         for (size_t i = 0; i < itemCount; ++i) {
             const double distance = std::abs(baseCenters[i] - cursorX);
-            scales[i] = computeScaleAtDistance(distance);
+            const double horizontalFactor = computeHorizontalFactorAtDistance(distance);
+            scales[i] = 1.0 + (m_config.maxScale - 1.0) * horizontalFactor * verticalFactor;
         }
     }
 

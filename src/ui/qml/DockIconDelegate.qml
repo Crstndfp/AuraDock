@@ -24,6 +24,20 @@ Item {
     width: itemWidth
     height: itemHeight
 
+    // Smooth temporal interpolation across frames
+    Behavior on x {
+        NumberAnimation { duration: 50; easing.type: Easing.OutQuad }
+    }
+    Behavior on y {
+        NumberAnimation { duration: 50; easing.type: Easing.OutQuad }
+    }
+    Behavior on width {
+        NumberAnimation { duration: 50; easing.type: Easing.OutQuad }
+    }
+    Behavior on height {
+        NumberAnimation { duration: 50; easing.type: Easing.OutQuad }
+    }
+
     // Check if separator type
     readonly property bool isSeparator: itemType === 3
 
