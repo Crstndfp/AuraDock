@@ -1,11 +1,27 @@
 #include "application/DockController.hpp"
 #include <QFileInfo>
+#include <QUrl>
 #include <QDebug>
 #include <QSettings>
 #include <algorithm>
 #include <chrono>
 
 namespace cachy_dock::application {
+
+static QString normalizeAppId(const QString &raw) {
+    if (raw.isEmpty()) return QString();
+    QString s = raw;
+    if (s.startsWith(QStringLiteral("file://"))) {
+        s = QUrl(s).toLocalFile();
+    } else if (s.startsWith(QStringLiteral("applications:"))) {
+        s = s.mid(13);
+    }
+    s = QFileInfo(s).fileName();
+    if (s.endsWith(QStringLiteral(".desktop"), Qt::CaseInsensitive)) {
+        s.chop(8);
+    }
+    return s.trimmed().toLower();
+}
 
 static bool matchesAppId(const std::string& itemId, const std::string& windowAppId) {
     if (itemId.empty() || windowAppId.empty()) {
@@ -14,13 +30,18 @@ static bool matchesAppId(const std::string& itemId, const std::string& windowApp
     if (itemId == windowAppId) {
         return true;
     }
-    QString qItem = QString::fromStdString(itemId);
-    QString qWin = QString::fromStdString(windowAppId);
-
-    QString itemBase = QFileInfo(qItem).completeBaseName();
-    if (itemBase == qWin || itemBase.endsWith(qWin) || qWin.endsWith(itemBase)) {
+    const QString normA = normalizeAppId(QString::fromStdString(itemId));
+    const QString normB = normalizeAppId(QString::fromStdString(windowAppId));
+    if (normA == normB) {
         return true;
     }
+
+    const QString lastA = normA.section(QLatin1Char('.'), -1);
+    const QString lastB = normB.section(QLatin1Char('.'), -1);
+    if (!lastA.isEmpty() && lastA == normB) return true;
+    if (!lastB.isEmpty() && lastB == normA) return true;
+    if (!lastA.isEmpty() && !lastB.isEmpty() && lastA == lastB) return true;
+
     return false;
 }
 

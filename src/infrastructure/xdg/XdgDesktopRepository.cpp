@@ -6,6 +6,8 @@
 #include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QRegularExpression>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QDebug>
 
 namespace cachy_dock::infrastructure::xdg {
@@ -13,7 +15,7 @@ namespace cachy_dock::infrastructure::xdg {
 XdgDesktopRepository::XdgDesktopRepository() = default;
 XdgDesktopRepository::~XdgDesktopRepository() = default;
 
-std::optional<domain::entities::DockItem> XdgDesktopRepository::resolveDesktopFile(const std::string& desktopPathOrName) const {
+std::optional<domain::entities::DockItem> XdgDesktopRepository::resolveDesktopFile(const std::string& desktopPathOrName) {
     QString resolvedPath = QString::fromStdString(desktopPathOrName);
 
     if (!QFileInfo::exists(resolvedPath)) {
@@ -143,11 +145,22 @@ bool XdgDesktopRepository::launch(const std::string& execCommand, bool useDiscre
 
 bool XdgDesktopRepository::launchDesktopId(const std::string& desktopId, bool useDiscreteGpu) {
     QString path = QString::fromStdString(desktopId);
-    if (!QFileInfo::exists(path)) {
-        return false;
+    QFileInfo info(path);
+    if (info.exists() && info.isDir()) {
+        return QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     }
 
-    QSettings desktopFile(path, QSettings::IniFormat);
+    QString resolvedPath = path;
+    if (!info.exists()) {
+        auto item = resolveDesktopFile(desktopId);
+        if (item.has_value()) {
+            resolvedPath = QString::fromStdString(item->id);
+        } else {
+            return false;
+        }
+    }
+
+    QSettings desktopFile(resolvedPath, QSettings::IniFormat);
     desktopFile.beginGroup("Desktop Entry");
     QString exec = desktopFile.value("Exec").toString();
     return launch(exec.toStdString(), useDiscreteGpu);

@@ -13,7 +13,7 @@ public:
     ~XdgDesktopRepository();
 
     [[nodiscard]] std::vector<domain::entities::DockItem> getDefaultPinnedApps() const;
-    [[nodiscard]] std::optional<domain::entities::DockItem> resolveDesktopFile(const std::string& desktopPathOrName) const;
+    [[nodiscard]] static std::optional<domain::entities::DockItem> resolveDesktopFile(const std::string& desktopPathOrName);
 
     static bool launch(const std::string& execCommand, bool useDiscreteGpu = false);
     static bool launchDesktopId(const std::string& desktopId, bool useDiscreteGpu = false);

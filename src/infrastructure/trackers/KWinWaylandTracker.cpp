@@ -1,10 +1,42 @@
 #include "infrastructure/trackers/KWinWaylandTracker.hpp"
 #include <taskmanager/tasksmodel.h>
 #include <taskmanager/abstracttasksmodel.h>
+#include <QFileInfo>
+#include <QUrl>
 #include <QDebug>
 #include <algorithm>
 
 namespace cachy_dock::infrastructure::trackers {
+
+static QString normalizeAppId(const QString &raw) {
+    if (raw.isEmpty()) return QString();
+    QString s = raw;
+    if (s.startsWith(QStringLiteral("file://"))) {
+        s = QUrl(s).toLocalFile();
+    } else if (s.startsWith(QStringLiteral("applications:"))) {
+        s = s.mid(13);
+    }
+    s = QFileInfo(s).fileName();
+    if (s.endsWith(QStringLiteral(".desktop"), Qt::CaseInsensitive)) {
+        s.chop(8);
+    }
+    return s.trimmed().toLower();
+}
+
+static bool isAppMatching(const QString &appA, const QString &appB) {
+    if (appA.isEmpty() || appB.isEmpty()) return false;
+    const QString normA = normalizeAppId(appA);
+    const QString normB = normalizeAppId(appB);
+    if (normA == normB) return true;
+
+    const QString lastA = normA.section(QLatin1Char('.'), -1);
+    const QString lastB = normB.section(QLatin1Char('.'), -1);
+    if (!lastA.isEmpty() && lastA == normB) return true;
+    if (!lastB.isEmpty() && lastB == normA) return true;
+    if (!lastA.isEmpty() && !lastB.isEmpty() && lastA == lastB) return true;
+
+    return false;
+}
 
 KWinWaylandTracker::KWinWaylandTracker(QObject *parent)
     : QObject(parent) {}
@@ -65,7 +97,11 @@ void KWinWaylandTracker::activateApp(const std::string& appId) {
         const QString rowAppId = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::AppId).toString();
         const QString launcherUrl = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::LauncherUrlWithoutIcon).toString();
 
-        if (rowAppId == target || target.contains(rowAppId) || launcherUrl.contains(target)) {
+        if (isAppMatching(target, rowAppId) || isAppMatching(target, launcherUrl)) {
+            const bool isMinimized = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsMinimized).toBool();
+            if (isMinimized) {
+                m_tasksModel->requestToggleMinimized(idx);
+            }
             m_tasksModel->requestActivate(idx);
             return;
         }
@@ -91,7 +127,7 @@ void KWinWaylandTracker::closeAllWindowsForApp(const std::string& appId) {
         const QString rowAppId = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::AppId).toString();
         const QString launcherUrl = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::LauncherUrlWithoutIcon).toString();
 
-        if (rowAppId == target || target.contains(rowAppId) || launcherUrl.contains(target)) {
+        if (isAppMatching(target, rowAppId) || isAppMatching(target, launcherUrl)) {
             m_tasksModel->requestClose(idx);
         }
     }

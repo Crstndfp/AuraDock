@@ -8,6 +8,7 @@
 #include <QColor>
 #include <QThread>
 #include <QCoreApplication>
+#include <QFileInfo>
 #include <mutex>
 #include <unordered_map>
 
@@ -63,6 +64,32 @@ private:
         QIcon icon = QIcon::fromTheme(id);
         if (icon.isNull()) {
             icon = QIcon(id);
+        }
+
+        if (icon.isNull()) {
+            static const QStringList fallbackDirs = {
+                QStringLiteral("/usr/share/pixmaps"),
+                QStringLiteral("/usr/share/icons/hicolor/scalable/apps"),
+                QStringLiteral("/usr/share/icons/hicolor/48x48/apps"),
+                QStringLiteral("/usr/share/icons/hicolor/128x128/apps"),
+                QStringLiteral("/usr/share/icons/hicolor/256x256/apps"),
+                QStringLiteral("/usr/share/icons/hicolor/512x512/apps")
+            };
+            static const QStringList extensions = {
+                QStringLiteral(".png"),
+                QStringLiteral(".svg"),
+                QStringLiteral(".xpm")
+            };
+            for (const auto &dir : fallbackDirs) {
+                for (const auto &ext : extensions) {
+                    const QString candidate = dir + QLatin1Char('/') + id + ext;
+                    if (QFileInfo::exists(candidate)) {
+                        icon = QIcon(candidate);
+                        if (!icon.isNull()) break;
+                    }
+                }
+                if (!icon.isNull()) break;
+            }
         }
 
         if (!icon.isNull()) {

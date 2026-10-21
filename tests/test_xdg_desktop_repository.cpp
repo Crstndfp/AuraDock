@@ -31,3 +31,8 @@ TEST(XdgDesktopRepositoryTest, ResolveNonExistentDesktopFile_ReturnsNullopt) {
     auto item = repo.resolveDesktopFile("definitely_non_existent_app_xyz_123.desktop");
     EXPECT_FALSE(item.has_value());
 }
+
+TEST(XdgDesktopRepositoryTest, LaunchDesktopIdWithNonExistentReturnsFalse) {
+    XdgDesktopRepository repo;
+    EXPECT_FALSE(repo.launchDesktopId("/non/existent/path/app.desktop", false));
+}
