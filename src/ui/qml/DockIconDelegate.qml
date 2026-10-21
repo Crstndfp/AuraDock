@@ -44,11 +44,8 @@ Item {
     // Separator line
     Rectangle {
         visible: root.isSeparator
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
-        width: 1
-        height: root.itemHeight * 0.65
-        color: Qt.rgba(1, 1, 1, 0.22)
+        anchors.fill: parent
+        color: Qt.rgba(1, 1, 1, 0.25)
     }
 
     // Application Icon Container

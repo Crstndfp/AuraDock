@@ -37,10 +37,12 @@ struct ParabolicConfig {
     double baseIconSize{48.0};
     double barHeight{64.0};
     double bottomMargin{12.0};
+    double iconBottomMargin{8.0};
     double maxScale{1.7};
     double influenceRadius{160.0};
     double itemSpacing{10.0};
-    double pillPaddingX{14.0};
+    double separatorSpacing{12.0};
+    double pillPaddingX{19.0}; // +5px extra breathing room for rounded curves
     double pillPaddingY{8.0};
     double baselineOffsetFromBottom{12.0};
     double approachDistance{50.0}; // Vertical approach distance over which scale ramps up smoothly
@@ -62,7 +64,8 @@ public:
         size_t itemCount,
         double surfaceWidth,
         double surfaceHeight,
-        const std::optional<Point2D>& cursorPosition
+        const std::optional<Point2D>& cursorPosition,
+        const std::vector<bool>& isSeparator = {}
     );
 
     [[nodiscard]] double computeScaleAtDistance(double distance) const noexcept;

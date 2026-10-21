@@ -164,12 +164,14 @@ int DockController::itemAt(double x, double y) const {
         if (i >= m_items.size()) break;
 
         const auto &tr = m_lastLayout.iconTransforms[i];
+        const bool isSep = (m_items[i].type == domain::entities::DockItemType::Separator);
 
-        const double halfSpacing = m_waveEngine.getConfig().itemSpacing / 2.0;
+        const double halfSpacing = isSep ? (m_waveEngine.getConfig().separatorSpacing / 2.0)
+                                         : (m_waveEngine.getConfig().itemSpacing / 2.0);
         const double left = tr.x - halfSpacing;
         const double right = tr.x + tr.width + halfSpacing;
 
-        const double top = tr.y - 12.0;
+        const double top = isSep ? m_lastLayout.pillGeometry.y : (tr.y - 12.0);
 
         if (x >= left && x <= right && y >= top && y <= bottom) {
             return static_cast<int>(i);
@@ -484,6 +486,14 @@ void DockController::setBarHeight(double val) {
     }
 }
 
+void DockController::setIconBottomMargin(double val) {
+    if (std::abs(m_settings.iconBottomMargin - val) > 0.01) {
+        m_settings.iconBottomMargin = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
 void DockController::setIconSize(double val) {
     if (std::abs(m_settings.iconSize - val) > 0.01) {
         m_settings.iconSize = val;
@@ -495,6 +505,22 @@ void DockController::setIconSize(double val) {
 void DockController::setItemSpacing(double val) {
     if (std::abs(m_settings.itemSpacing - val) > 0.01) {
         m_settings.itemSpacing = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
+void DockController::setSeparatorSpacing(double val) {
+    if (std::abs(m_settings.separatorSpacing - val) > 0.01) {
+        m_settings.separatorSpacing = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
+void DockController::setPillPaddingX(double val) {
+    if (std::abs(m_settings.pillPaddingX - val) > 0.01) {
+        m_settings.pillPaddingX = val;
         applySettingsToEngine();
         saveSettings();
     }
@@ -577,8 +603,11 @@ void DockController::applySettingsToEngine() {
     config.bottomMargin = m_settings.bottomMargin;
     config.baselineOffsetFromBottom = m_settings.bottomMargin;
     config.barHeight = m_settings.barHeight;
+    config.iconBottomMargin = m_settings.iconBottomMargin;
     config.baseIconSize = m_settings.iconSize;
     config.itemSpacing = m_settings.itemSpacing;
+    config.separatorSpacing = m_settings.separatorSpacing;
+    config.pillPaddingX = m_settings.pillPaddingX;
     config.autoCornerRadius = m_settings.autoCornerRadius;
     config.customCornerRadius = m_settings.cornerRadius;
     m_waveEngine.setConfig(config);
@@ -590,8 +619,11 @@ void DockController::loadSettings() {
     QSettings settings("cachy-dock", "cachy-dock");
     m_settings.bottomMargin = settings.value("appearance/bottomMargin", 12.0).toDouble();
     m_settings.barHeight = settings.value("appearance/barHeight", 64.0).toDouble();
+    m_settings.iconBottomMargin = settings.value("appearance/iconBottomMargin", 8.0).toDouble();
     m_settings.iconSize = settings.value("appearance/iconSize", 48.0).toDouble();
     m_settings.itemSpacing = settings.value("appearance/itemSpacing", 10.0).toDouble();
+    m_settings.separatorSpacing = settings.value("appearance/separatorSpacing", 12.0).toDouble();
+    m_settings.pillPaddingX = settings.value("appearance/pillPaddingX", 19.0).toDouble();
     m_settings.cornerRadius = settings.value("appearance/cornerRadius", 20.0).toDouble();
     m_settings.autoCornerRadius = settings.value("appearance/autoCornerRadius", true).toBool();
 }
@@ -600,14 +632,24 @@ void DockController::saveSettings() {
     QSettings settings("cachy-dock", "cachy-dock");
     settings.setValue("appearance/bottomMargin", m_settings.bottomMargin);
     settings.setValue("appearance/barHeight", m_settings.barHeight);
+    settings.setValue("appearance/iconBottomMargin", m_settings.iconBottomMargin);
     settings.setValue("appearance/iconSize", m_settings.iconSize);
     settings.setValue("appearance/itemSpacing", m_settings.itemSpacing);
+    settings.setValue("appearance/separatorSpacing", m_settings.separatorSpacing);
+    settings.setValue("appearance/pillPaddingX", m_settings.pillPaddingX);
     settings.setValue("appearance/cornerRadius", m_settings.cornerRadius);
     settings.setValue("appearance/autoCornerRadius", m_settings.autoCornerRadius);
 }
 
 void DockController::recomputeLayout() {
-    m_lastLayout = m_waveEngine.computeLayout(m_items.size(), m_surfaceWidth, m_surfaceHeight, m_cursor);
+    std::vector<bool> isSep(m_items.size(), false);
+    for (size_t i = 0; i < m_items.size(); ++i) {
+        if (m_items[i].type == domain::entities::DockItemType::Separator) {
+            isSep[i] = true;
+        }
+    }
+
+    m_lastLayout = m_waveEngine.computeLayout(m_items.size(), m_surfaceWidth, m_surfaceHeight, m_cursor, isSep);
 
     int newHoveredIndex = -1;
     if (m_cursor.has_value()) {

@@ -39,8 +39,11 @@ class DockController : public QAbstractListModel {
     // Configurable Dock Settings
     Q_PROPERTY(double bottomMargin READ bottomMargin WRITE setBottomMargin NOTIFY settingsChanged)
     Q_PROPERTY(double barHeight READ barHeight WRITE setBarHeight NOTIFY settingsChanged)
+    Q_PROPERTY(double iconBottomMargin READ iconBottomMargin WRITE setIconBottomMargin NOTIFY settingsChanged)
     Q_PROPERTY(double iconSize READ iconSize WRITE setIconSize NOTIFY settingsChanged)
     Q_PROPERTY(double itemSpacing READ itemSpacing WRITE setItemSpacing NOTIFY settingsChanged)
+    Q_PROPERTY(double separatorSpacing READ separatorSpacing WRITE setSeparatorSpacing NOTIFY settingsChanged)
+    Q_PROPERTY(double pillPaddingX READ pillPaddingX WRITE setPillPaddingX NOTIFY settingsChanged)
     Q_PROPERTY(double cornerRadius READ cornerRadius WRITE setCornerRadius NOTIFY settingsChanged)
     Q_PROPERTY(bool autoCornerRadius READ autoCornerRadius WRITE setAutoCornerRadius NOTIFY settingsChanged)
     Q_PROPERTY(bool isSettingsOpen READ isSettingsOpen WRITE setSettingsOpen NOTIFY isSettingsOpenChanged)
@@ -97,11 +100,20 @@ public:
     [[nodiscard]] double barHeight() const noexcept { return m_settings.barHeight; }
     void setBarHeight(double val);
 
+    [[nodiscard]] double iconBottomMargin() const noexcept { return m_settings.iconBottomMargin; }
+    void setIconBottomMargin(double val);
+
     [[nodiscard]] double iconSize() const noexcept { return m_settings.iconSize; }
     void setIconSize(double val);
 
     [[nodiscard]] double itemSpacing() const noexcept { return m_settings.itemSpacing; }
     void setItemSpacing(double val);
+
+    [[nodiscard]] double separatorSpacing() const noexcept { return m_settings.separatorSpacing; }
+    void setSeparatorSpacing(double val);
+
+    [[nodiscard]] double pillPaddingX() const noexcept { return m_settings.pillPaddingX; }
+    void setPillPaddingX(double val);
 
     [[nodiscard]] double cornerRadius() const noexcept { return m_settings.cornerRadius; }
     void setCornerRadius(double val);

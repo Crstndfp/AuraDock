@@ -5,7 +5,7 @@ Window {
     id: root
     title: "Cachy Dock Preferences"
     width: 480
-    height: 620
+    height: 720
     color: "transparent"
     flags: Qt.Dialog | Qt.FramelessWindowHint
 
@@ -250,7 +250,76 @@ Window {
                 }
             }
 
-            // Control 2B: Base Icon Size
+            // Control 2B: Icon bottom distance from dock bar
+            Column {
+                width: parent.width
+                spacing: 6
+
+                Item {
+                    width: parent.width
+                    height: 18
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Separación de iconos al fondo de la barra"
+                        color: "#EEEEEE"
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+                    Text {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Math.round(dockController.iconBottomMargin) + " px"
+                        color: Qt.rgba(0.4, 0.75, 1.0, 1.0)
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+                }
+
+                Item {
+                    width: parent.width
+                    height: 22
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width
+                        height: 6
+                        radius: 3
+                        color: Qt.rgba(1, 1, 1, 0.15)
+
+                        Rectangle {
+                            height: parent.height
+                            radius: 3
+                            color: Qt.rgba(0.3, 0.6, 1.0, 0.85)
+                            width: Math.max(0, Math.min(parent.width, (dockController.iconBottomMargin - 2) / (24 - 2) * parent.width))
+                        }
+                    }
+
+                    Rectangle {
+                        width: 16
+                        height: 16
+                        radius: 8
+                        color: "#FFFFFF"
+                        x: Math.max(0, Math.min(parent.width - width, (dockController.iconBottomMargin - 2) / (24 - 2) * (parent.width - width)))
+                        anchors.verticalCenter: parent.verticalCenter
+                        border.color: Qt.rgba(0, 0, 0, 0.3)
+                        border.width: 1
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        function updateVal(mouseX) {
+                            var ratio = Math.max(0, Math.min(1, mouseX / parent.width));
+                            dockController.iconBottomMargin = Math.round(2 + ratio * (24 - 2));
+                        }
+                        onPressed: function(mouse) { updateVal(mouse.x); }
+                        onPositionChanged: function(mouse) { if (pressed) updateVal(mouse.x); }
+                    }
+                }
+            }
+
+            // Control 2C: Base Icon Size
             Column {
                 width: parent.width
                 spacing: 6
@@ -381,6 +450,75 @@ Window {
                         function updateVal(mouseX) {
                             var ratio = Math.max(0, Math.min(1, mouseX / parent.width));
                             dockController.itemSpacing = Math.round(2 + ratio * (32 - 2));
+                        }
+                        onPressed: function(mouse) { updateVal(mouse.x); }
+                        onPositionChanged: function(mouse) { if (pressed) updateVal(mouse.x); }
+                    }
+                }
+            }
+
+            // Control 3B: Separator horizontal spacing
+            Column {
+                width: parent.width
+                spacing: 6
+
+                Item {
+                    width: parent.width
+                    height: 18
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Separación lateral de líneas separadoras"
+                        color: "#EEEEEE"
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+                    Text {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Math.round(dockController.separatorSpacing) + " px"
+                        color: Qt.rgba(0.4, 0.75, 1.0, 1.0)
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+                }
+
+                Item {
+                    width: parent.width
+                    height: 22
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width
+                        height: 6
+                        radius: 3
+                        color: Qt.rgba(1, 1, 1, 0.15)
+
+                        Rectangle {
+                            height: parent.height
+                            radius: 3
+                            color: Qt.rgba(0.3, 0.6, 1.0, 0.85)
+                            width: Math.max(0, Math.min(parent.width, (dockController.separatorSpacing - 4) / (30 - 4) * parent.width))
+                        }
+                    }
+
+                    Rectangle {
+                        width: 16
+                        height: 16
+                        radius: 8
+                        color: "#FFFFFF"
+                        x: Math.max(0, Math.min(parent.width - width, (dockController.separatorSpacing - 4) / (30 - 4) * (parent.width - width)))
+                        anchors.verticalCenter: parent.verticalCenter
+                        border.color: Qt.rgba(0, 0, 0, 0.3)
+                        border.width: 1
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        function updateVal(mouseX) {
+                            var ratio = Math.max(0, Math.min(1, mouseX / parent.width));
+                            dockController.separatorSpacing = Math.round(4 + ratio * (30 - 4));
                         }
                         onPressed: function(mouse) { updateVal(mouse.x); }
                         onPositionChanged: function(mouse) { if (pressed) updateVal(mouse.x); }

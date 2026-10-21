@@ -14,6 +14,7 @@ protected:
             DockItem{.id = "separator", .name = "Separator", .iconName = "", .type = DockItemType::Separator, .isPinned = true},
             DockItem{.id = "downloads", .name = "Downloads", .iconName = "folder-download", .type = DockItemType::DocumentStack, .isPinned = true}
         };
+        controller.resetSettingsToDefaults();
         controller.setItems(items);
     }
 
@@ -38,15 +39,16 @@ TEST_F(DockSettingsTest, ChangingBottomMarginShiftsIconsAndPillInLockstep) {
 }
 
 TEST_F(DockSettingsTest, ChangingBarHeightAltersPillHeightWithoutIncreasingDockWidth) {
+    const double initialBarHeight = controller.barHeight();
     const double initialPillHeight = controller.pillHeight();
     const double initialPillWidth = controller.pillWidth();
     const double initialIconWidth = controller.data(controller.index(0, 0), DockController::ItemWidthRole).toDouble();
 
-    // Increase bar height by 24px (from 64px to 88px)
-    controller.setBarHeight(88.0);
+    // Increase bar height by 24px
+    controller.setBarHeight(initialBarHeight + 24.0);
 
     // Pill height should increase by 24px
-    EXPECT_DOUBLE_EQ(controller.pillHeight(), 88.0);
+    EXPECT_DOUBLE_EQ(controller.pillHeight(), initialBarHeight + 24.0);
     EXPECT_DOUBLE_EQ(controller.pillHeight() - initialPillHeight, 24.0);
 
     // Pill width and icon widths MUST remain completely constant
@@ -113,17 +115,57 @@ TEST_F(DockSettingsTest, RemoveSeparatorDeletesDividerAndUpdatesRowCount) {
     EXPECT_EQ(controller.data(controller.index(2, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::DocumentStack));
 }
 
+TEST_F(DockSettingsTest, ChangingIconBottomMarginShiftsIconsWithinPill) {
+    const double initialPillY = controller.pillY();
+    const double initialPillHeight = controller.pillHeight();
+    const double initialIconY = controller.data(controller.index(0, 0), DockController::ItemYRole).toDouble();
+    const double delta = 6.0;
+
+    // Increase icon bottom margin by 6px
+    controller.setIconBottomMargin(controller.iconBottomMargin() + delta);
+
+    // Pill geometry must remain unchanged
+    EXPECT_DOUBLE_EQ(controller.pillY(), initialPillY);
+    EXPECT_DOUBLE_EQ(controller.pillHeight(), initialPillHeight);
+
+    // Icon should shift upwards inside the pill by delta
+    const double newIconY = controller.data(controller.index(0, 0), DockController::ItemYRole).toDouble();
+    EXPECT_NEAR(initialIconY - newIconY, delta, 0.001);
+}
+
+TEST_F(DockSettingsTest, ChangingSeparatorSpacingAltersGapsAroundSeparators) {
+    const double initialPillWidth = controller.pillWidth();
+    const double delta = 8.0;
+
+    // Increase separator spacing by 8px (affects left and right of the separator = +16px total)
+    controller.setSeparatorSpacing(controller.separatorSpacing() + delta);
+
+    EXPECT_GT(controller.pillWidth(), initialPillWidth);
+    EXPECT_DOUBLE_EQ(controller.pillWidth() - initialPillWidth, delta * 2.0);
+}
+
+TEST_F(DockSettingsTest, PillPaddingXHasExtraFivePixelsDefaultCurveClearance) {
+    EXPECT_DOUBLE_EQ(controller.pillPaddingX(), 19.0);
+}
+
 TEST_F(DockSettingsTest, ResetSettingsRestoresDefaultValues) {
     controller.setBottomMargin(40.0);
+    controller.setBarHeight(80.0);
+    controller.setIconBottomMargin(16.0);
     controller.setIconSize(72.0);
     controller.setItemSpacing(30.0);
+    controller.setSeparatorSpacing(24.0);
     controller.setAutoCornerRadius(false);
     controller.setCornerRadius(4.0);
 
     controller.resetSettingsToDefaults();
 
     EXPECT_DOUBLE_EQ(controller.bottomMargin(), 12.0);
+    EXPECT_DOUBLE_EQ(controller.barHeight(), 64.0);
+    EXPECT_DOUBLE_EQ(controller.iconBottomMargin(), 8.0);
     EXPECT_DOUBLE_EQ(controller.iconSize(), 48.0);
     EXPECT_DOUBLE_EQ(controller.itemSpacing(), 10.0);
+    EXPECT_DOUBLE_EQ(controller.separatorSpacing(), 12.0);
+    EXPECT_DOUBLE_EQ(controller.pillPaddingX(), 19.0);
     EXPECT_TRUE(controller.autoCornerRadius());
 }

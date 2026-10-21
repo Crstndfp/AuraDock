@@ -29,10 +29,20 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     size_t itemCount,
     double surfaceWidth,
     double surfaceHeight,
-    const std::optional<Point2D>& cursorPosition
+    const std::optional<Point2D>& cursorPosition,
+    const std::vector<bool>& isSeparator
 ) {
     MagnificationResult result;
     result.iconTransforms.resize(itemCount);
+
+    auto isSep = [&](size_t idx) -> bool {
+        return idx < isSeparator.size() && isSeparator[idx];
+    };
+
+    auto spacingAfter = [&](size_t idx) -> double {
+        if (idx + 1 >= itemCount) return 0.0;
+        return (isSep(idx) || isSep(idx + 1)) ? m_config.separatorSpacing : m_config.itemSpacing;
+    };
 
     if (itemCount == 0) {
         const double effectiveBottomMargin = m_config.bottomMargin;
@@ -50,14 +60,19 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     }
 
     // Step 1: Base unmagnified layout to determine equilibrium centers
-    const double unmagnifiedTotalWidth = (itemCount * m_config.baseIconSize) +
-                                         ((itemCount - 1) * m_config.itemSpacing);
+    double unmagnifiedTotalWidth = 0.0;
+    for (size_t i = 0; i < itemCount; ++i) {
+        const double w = isSep(i) ? 1.0 : m_config.baseIconSize;
+        unmagnifiedTotalWidth += w + spacingAfter(i);
+    }
     const double unmagnifiedStartX = (surfaceWidth - unmagnifiedTotalWidth) / 2.0;
 
     std::vector<double> baseCenters(itemCount);
+    double curBaseX = unmagnifiedStartX;
     for (size_t i = 0; i < itemCount; ++i) {
-        baseCenters[i] = unmagnifiedStartX + (i * (m_config.baseIconSize + m_config.itemSpacing)) +
-                         (m_config.baseIconSize / 2.0);
+        const double w = isSep(i) ? 1.0 : m_config.baseIconSize;
+        baseCenters[i] = curBaseX + (w / 2.0);
+        curBaseX += w + spacingAfter(i);
     }
 
     // Step 2: Compute smooth vertical approach factor and unified vertical metrics
@@ -66,9 +81,8 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     const double pillBottomY = surfaceHeight - effectiveBottomMargin;
     const double pillY = pillBottomY - pillHeight;
 
-    // Center unmagnified icons vertically within the dock pill
-    const double verticalPadding = std::max(4.0, (pillHeight - m_config.baseIconSize) / 2.0);
-    const double baselineY = pillBottomY - verticalPadding;
+    // Baseline position determined strictly by iconBottomMargin
+    const double baselineY = pillBottomY - m_config.iconBottomMargin;
     const double unmagnifiedIconTopY = baselineY - m_config.baseIconSize;
     const double approachStartY = unmagnifiedIconTopY - m_config.approachDistance;
 
@@ -104,9 +118,13 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     std::vector<double> scales(itemCount, 1.0);
     if (cursorActive) {
         for (size_t i = 0; i < itemCount; ++i) {
-            const double distance = std::abs(baseCenters[i] - cursorX);
-            const double horizontalFactor = computeHorizontalFactorAtDistance(distance);
-            scales[i] = 1.0 + (m_config.maxScale - 1.0) * horizontalFactor * verticalFactor;
+            if (isSep(i)) {
+                scales[i] = 1.0; // Separators NEVER magnify
+            } else {
+                const double distance = std::abs(baseCenters[i] - cursorX);
+                const double horizontalFactor = computeHorizontalFactorAtDistance(distance);
+                scales[i] = 1.0 + (m_config.maxScale - 1.0) * horizontalFactor * verticalFactor;
+            }
         }
     }
 
@@ -114,19 +132,18 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     std::vector<double> scaledWidths(itemCount);
     double totalScaledWidth = 0.0;
     for (size_t i = 0; i < itemCount; ++i) {
-        scaledWidths[i] = m_config.baseIconSize * scales[i];
-        totalScaledWidth += scaledWidths[i];
+        scaledWidths[i] = isSep(i) ? 1.0 : (m_config.baseIconSize * scales[i]);
+        totalScaledWidth += scaledWidths[i] + spacingAfter(i);
     }
-    totalScaledWidth += (itemCount - 1) * m_config.itemSpacing;
 
     const double startX = (surfaceWidth - totalScaledWidth) / 2.0;
     double currentX = startX;
 
     for (size_t i = 0; i < itemCount; ++i) {
         const double width = scaledWidths[i];
-        const double height = width;
+        const double height = isSep(i) ? (pillHeight * 0.65) : width;
         const double x = currentX;
-        const double y = baselineY - height;
+        const double y = isSep(i) ? (pillY + (pillHeight - height) / 2.0) : (baselineY - height);
 
         result.iconTransforms[i] = IconTransform{
             .x = x,
@@ -136,7 +153,7 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
             .scale = scales[i]
         };
 
-        currentX += width + m_config.itemSpacing;
+        currentX += width + spacingAfter(i);
     }
 
     // Step 5: Glassmorphic pill geometry bounds
