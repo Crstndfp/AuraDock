@@ -158,7 +158,7 @@ int DockController::itemAt(double x, double y) const {
         return -1;
     }
 
-    const double baselineY = m_surfaceHeight - m_waveEngine.getConfig().baselineOffsetFromBottom;
+    const double bottom = m_lastLayout.pillGeometry.y + m_lastLayout.pillGeometry.height + 8.0;
 
     for (size_t i = 0; i < m_lastLayout.iconTransforms.size(); ++i) {
         if (i >= m_items.size()) break;
@@ -170,7 +170,6 @@ int DockController::itemAt(double x, double y) const {
         const double right = tr.x + tr.width + halfSpacing;
 
         const double top = tr.y - 12.0;
-        const double bottom = baselineY + 16.0;
 
         if (x >= left && x <= right && y >= top && y <= bottom) {
             return static_cast<int>(i);
@@ -477,6 +476,14 @@ void DockController::setBottomMargin(double val) {
     }
 }
 
+void DockController::setBarHeight(double val) {
+    if (std::abs(m_settings.barHeight - val) > 0.01) {
+        m_settings.barHeight = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
 void DockController::setIconSize(double val) {
     if (std::abs(m_settings.iconSize - val) > 0.01) {
         m_settings.iconSize = val;
@@ -567,7 +574,9 @@ void DockController::removeSeparator(int index) {
 
 void DockController::applySettingsToEngine() {
     auto config = m_waveEngine.getConfig();
+    config.bottomMargin = m_settings.bottomMargin;
     config.baselineOffsetFromBottom = m_settings.bottomMargin;
+    config.barHeight = m_settings.barHeight;
     config.baseIconSize = m_settings.iconSize;
     config.itemSpacing = m_settings.itemSpacing;
     config.autoCornerRadius = m_settings.autoCornerRadius;
@@ -580,6 +589,7 @@ void DockController::applySettingsToEngine() {
 void DockController::loadSettings() {
     QSettings settings("cachy-dock", "cachy-dock");
     m_settings.bottomMargin = settings.value("appearance/bottomMargin", 12.0).toDouble();
+    m_settings.barHeight = settings.value("appearance/barHeight", 64.0).toDouble();
     m_settings.iconSize = settings.value("appearance/iconSize", 48.0).toDouble();
     m_settings.itemSpacing = settings.value("appearance/itemSpacing", 10.0).toDouble();
     m_settings.cornerRadius = settings.value("appearance/cornerRadius", 20.0).toDouble();
@@ -589,6 +599,7 @@ void DockController::loadSettings() {
 void DockController::saveSettings() {
     QSettings settings("cachy-dock", "cachy-dock");
     settings.setValue("appearance/bottomMargin", m_settings.bottomMargin);
+    settings.setValue("appearance/barHeight", m_settings.barHeight);
     settings.setValue("appearance/iconSize", m_settings.iconSize);
     settings.setValue("appearance/itemSpacing", m_settings.itemSpacing);
     settings.setValue("appearance/cornerRadius", m_settings.cornerRadius);

@@ -5,7 +5,7 @@ Window {
     id: root
     title: "Cachy Dock Preferences"
     width: 480
-    height: 560
+    height: 620
     color: "transparent"
     flags: Qt.Dialog | Qt.FramelessWindowHint
 
@@ -40,7 +40,7 @@ Window {
             height: 50
 
             DragHandler {
-                target: root
+                target: null
                 onActiveChanged: if (active) root.startSystemMove()
             }
 
@@ -181,7 +181,7 @@ Window {
                 }
             }
 
-            // Control 2: Icon Size / Dock Bar Height
+            // Control 2: Dock Bar Height
             Column {
                 width: parent.width
                 spacing: 6
@@ -193,7 +193,76 @@ Window {
                     Text {
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Alto de la barra (Tamaño de iconos)"
+                        text: "Alto de la barra (Grosor vertical)"
+                        color: "#EEEEEE"
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+                    Text {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Math.round(dockController.barHeight) + " px"
+                        color: Qt.rgba(0.4, 0.75, 1.0, 1.0)
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+                }
+
+                Item {
+                    width: parent.width
+                    height: 22
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width
+                        height: 6
+                        radius: 3
+                        color: Qt.rgba(1, 1, 1, 0.15)
+
+                        Rectangle {
+                            height: parent.height
+                            radius: 3
+                            color: Qt.rgba(0.3, 0.6, 1.0, 0.85)
+                            width: Math.max(0, Math.min(parent.width, (dockController.barHeight - 48) / (110 - 48) * parent.width))
+                        }
+                    }
+
+                    Rectangle {
+                        width: 16
+                        height: 16
+                        radius: 8
+                        color: "#FFFFFF"
+                        x: Math.max(0, Math.min(parent.width - width, (dockController.barHeight - 48) / (110 - 48) * (parent.width - width)))
+                        anchors.verticalCenter: parent.verticalCenter
+                        border.color: Qt.rgba(0, 0, 0, 0.3)
+                        border.width: 1
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        function updateVal(mouseX) {
+                            var ratio = Math.max(0, Math.min(1, mouseX / parent.width));
+                            dockController.barHeight = Math.round(48 + ratio * (110 - 48));
+                        }
+                        onPressed: function(mouse) { updateVal(mouse.x); }
+                        onPositionChanged: function(mouse) { if (pressed) updateVal(mouse.x); }
+                    }
+                }
+            }
+
+            // Control 2B: Base Icon Size
+            Column {
+                width: parent.width
+                spacing: 6
+
+                Item {
+                    width: parent.width
+                    height: 18
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Tamaño de los iconos"
                         color: "#EEEEEE"
                         font.pixelSize: 12
                         font.bold: true
@@ -223,7 +292,7 @@ Window {
                             height: parent.height
                             radius: 3
                             color: Qt.rgba(0.3, 0.6, 1.0, 0.85)
-                            width: Math.max(0, Math.min(parent.width, (dockController.iconSize - 32) / (96 - 32) * parent.width))
+                            width: Math.max(0, Math.min(parent.width, (dockController.iconSize - 32) / (64 - 32) * parent.width))
                         }
                     }
 
@@ -232,7 +301,7 @@ Window {
                         height: 16
                         radius: 8
                         color: "#FFFFFF"
-                        x: Math.max(0, Math.min(parent.width - width, (dockController.iconSize - 32) / (96 - 32) * (parent.width - width)))
+                        x: Math.max(0, Math.min(parent.width - width, (dockController.iconSize - 32) / (64 - 32) * (parent.width - width)))
                         anchors.verticalCenter: parent.verticalCenter
                         border.color: Qt.rgba(0, 0, 0, 0.3)
                         border.width: 1
@@ -242,7 +311,7 @@ Window {
                         anchors.fill: parent
                         function updateVal(mouseX) {
                             var ratio = Math.max(0, Math.min(1, mouseX / parent.width));
-                            dockController.iconSize = Math.round(32 + ratio * (96 - 32));
+                            dockController.iconSize = Math.round(32 + ratio * (64 - 32));
                         }
                         onPressed: function(mouse) { updateVal(mouse.x); }
                         onPositionChanged: function(mouse) { if (pressed) updateVal(mouse.x); }

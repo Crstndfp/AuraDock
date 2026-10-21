@@ -20,24 +20,48 @@ protected:
     DockController controller;
 };
 
-TEST_F(DockSettingsTest, ChangingBottomMarginUpdatesPillY) {
+TEST_F(DockSettingsTest, ChangingBottomMarginShiftsIconsAndPillInLockstep) {
     const double initialPillY = controller.pillY();
-    
-    // Increase bottom margin by 20px
-    controller.setBottomMargin(controller.bottomMargin() + 20.0);
+    const double initialIconY = controller.data(controller.index(0, 0), DockController::ItemYRole).toDouble();
+    const double delta = 25.0;
 
-    // Dock pill should move upwards (lower Y value)
-    EXPECT_LT(controller.pillY(), initialPillY);
+    // Increase bottom margin by 25px
+    controller.setBottomMargin(controller.bottomMargin() + delta);
+
+    const double newPillY = controller.pillY();
+    const double newIconY = controller.data(controller.index(0, 0), DockController::ItemYRole).toDouble();
+
+    // Both pill and icons MUST shift upwards by the EXACT same delta (1:1 lockstep)
+    EXPECT_NEAR(initialPillY - newPillY, delta, 0.001);
+    EXPECT_NEAR(initialIconY - newIconY, delta, 0.001);
+    EXPECT_NEAR((initialIconY - initialPillY), (newIconY - newPillY), 0.001);
 }
 
-TEST_F(DockSettingsTest, ChangingIconSizeUpdatesPillHeightAndDimensions) {
-    const double initialHeight = controller.pillHeight();
+TEST_F(DockSettingsTest, ChangingBarHeightAltersPillHeightWithoutIncreasingDockWidth) {
+    const double initialPillHeight = controller.pillHeight();
+    const double initialPillWidth = controller.pillWidth();
+    const double initialIconWidth = controller.data(controller.index(0, 0), DockController::ItemWidthRole).toDouble();
 
-    // Increase icon size from default 48px to 64px
-    controller.setIconSize(64.0);
+    // Increase bar height by 24px (from 64px to 88px)
+    controller.setBarHeight(88.0);
 
-    EXPECT_GT(controller.pillHeight(), initialHeight);
-    EXPECT_DOUBLE_EQ(controller.iconSize(), 64.0);
+    // Pill height should increase by 24px
+    EXPECT_DOUBLE_EQ(controller.pillHeight(), 88.0);
+    EXPECT_DOUBLE_EQ(controller.pillHeight() - initialPillHeight, 24.0);
+
+    // Pill width and icon widths MUST remain completely constant
+    EXPECT_DOUBLE_EQ(controller.pillWidth(), initialPillWidth);
+    EXPECT_DOUBLE_EQ(controller.data(controller.index(0, 0), DockController::ItemWidthRole).toDouble(), initialIconWidth);
+}
+
+TEST_F(DockSettingsTest, ChangingIconSizeUpdatesIconDimensions) {
+    const double initialIconWidth = controller.data(controller.index(0, 0), DockController::ItemWidthRole).toDouble();
+
+    // Increase icon size from default 48px to 60px
+    controller.setIconSize(60.0);
+
+    EXPECT_GT(controller.data(controller.index(0, 0), DockController::ItemWidthRole).toDouble(), initialIconWidth);
+    EXPECT_DOUBLE_EQ(controller.iconSize(), 60.0);
 }
 
 TEST_F(DockSettingsTest, ChangingItemSpacingUpdatesPillWidth) {

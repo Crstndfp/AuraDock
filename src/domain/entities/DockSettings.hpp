@@ -4,6 +4,7 @@ namespace cachy_dock::domain::entities {
 
 struct DockSettings {
     double bottomMargin{12.0};     // Margin from screen bottom edge (baselineOffsetFromBottom)
+    double barHeight{64.0};        // Dedicated height of the dock pill
     double iconSize{48.0};          // Base icon size (controls dock height)
     double itemSpacing{10.0};       // Gap between adjacent icons / separators
     double cornerRadius{20.0};      // Custom pill corner curve radius

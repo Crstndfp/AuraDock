@@ -35,6 +35,8 @@ struct MagnificationResult {
 
 struct ParabolicConfig {
     double baseIconSize{48.0};
+    double barHeight{64.0};
+    double bottomMargin{12.0};
     double maxScale{1.7};
     double influenceRadius{160.0};
     double itemSpacing{10.0};

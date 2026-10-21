@@ -38,6 +38,7 @@ class DockController : public QAbstractListModel {
 
     // Configurable Dock Settings
     Q_PROPERTY(double bottomMargin READ bottomMargin WRITE setBottomMargin NOTIFY settingsChanged)
+    Q_PROPERTY(double barHeight READ barHeight WRITE setBarHeight NOTIFY settingsChanged)
     Q_PROPERTY(double iconSize READ iconSize WRITE setIconSize NOTIFY settingsChanged)
     Q_PROPERTY(double itemSpacing READ itemSpacing WRITE setItemSpacing NOTIFY settingsChanged)
     Q_PROPERTY(double cornerRadius READ cornerRadius WRITE setCornerRadius NOTIFY settingsChanged)
@@ -92,6 +93,9 @@ public:
     // Settings getters & setters
     [[nodiscard]] double bottomMargin() const noexcept { return m_settings.bottomMargin; }
     void setBottomMargin(double val);
+
+    [[nodiscard]] double barHeight() const noexcept { return m_settings.barHeight; }
+    void setBarHeight(double val);
 
     [[nodiscard]] double iconSize() const noexcept { return m_settings.iconSize; }
     void setIconSize(double val);

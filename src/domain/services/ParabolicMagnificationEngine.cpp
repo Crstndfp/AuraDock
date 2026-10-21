@@ -35,12 +35,14 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     result.iconTransforms.resize(itemCount);
 
     if (itemCount == 0) {
+        const double effectiveBottomMargin = m_config.bottomMargin;
+        const double pillHeight = m_config.barHeight;
         result.pillGeometry = PillGeometry{
             .x = surfaceWidth / 2.0,
-            .y = surfaceHeight - m_config.baseIconSize - m_config.pillPaddingY * 2.0,
+            .y = surfaceHeight - effectiveBottomMargin - pillHeight,
             .width = 0.0,
-            .height = m_config.baseIconSize + m_config.pillPaddingY * 2.0,
-            .cornerRadius = 20.0
+            .height = pillHeight,
+            .cornerRadius = pillHeight / 2.0
         };
         result.isMagnified = false;
         m_wasMagnified = false;
@@ -58,10 +60,17 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
                          (m_config.baseIconSize / 2.0);
     }
 
-    // Step 2: Compute smooth vertical approach factor
-    const double baselineY = surfaceHeight - m_config.baselineOffsetFromBottom;
-    const double unmagnifiedIconTopY = baselineY - m_config.baseIconSize; // e.g. 168 - 48 = 120.0
-    const double approachStartY = unmagnifiedIconTopY - m_config.approachDistance; // e.g. 120 - 50 = 70.0
+    // Step 2: Compute smooth vertical approach factor and unified vertical metrics
+    const double effectiveBottomMargin = m_config.bottomMargin;
+    const double pillHeight = m_config.barHeight;
+    const double pillBottomY = surfaceHeight - effectiveBottomMargin;
+    const double pillY = pillBottomY - pillHeight;
+
+    // Center unmagnified icons vertically within the dock pill
+    const double verticalPadding = std::max(4.0, (pillHeight - m_config.baseIconSize) / 2.0);
+    const double baselineY = pillBottomY - verticalPadding;
+    const double unmagnifiedIconTopY = baselineY - m_config.baseIconSize;
+    const double approachStartY = unmagnifiedIconTopY - m_config.approachDistance;
 
     const double pillLeft = unmagnifiedStartX - m_config.pillPaddingX - m_config.influenceRadius;
     const double pillRight = unmagnifiedStartX + unmagnifiedTotalWidth + m_config.pillPaddingX + m_config.influenceRadius;
@@ -130,9 +139,7 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
         currentX += width + m_config.itemSpacing;
     }
 
-    // Step 5: Glassmorphic pill geometry bounds (anchored at base icon size)
-    const double pillHeight = m_config.baseIconSize + (m_config.pillPaddingY * 2.0);
-    const double pillY = surfaceHeight - pillHeight - (m_config.baselineOffsetFromBottom / 2.0);
+    // Step 5: Glassmorphic pill geometry bounds
     const double pillX = startX - m_config.pillPaddingX;
     const double pillWidth = totalScaledWidth + (m_config.pillPaddingX * 2.0);
 
