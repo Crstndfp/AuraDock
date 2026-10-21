@@ -115,17 +115,21 @@ Window {
                 width: parent.width
                 spacing: 6
 
-                Row {
+                Item {
                     width: parent.width
+                    height: 18
+
                     Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
                         text: "Margen inferior de la pantalla"
                         color: "#EEEEEE"
                         font.pixelSize: 12
                         font.bold: true
                     }
-                    Item { width: 1; height: 1; Layout.fillWidth: true }
                     Text {
                         anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
                         text: Math.round(dockController.bottomMargin) + " px"
                         color: Qt.rgba(0.4, 0.75, 1.0, 1.0)
                         font.pixelSize: 12
@@ -182,17 +186,21 @@ Window {
                 width: parent.width
                 spacing: 6
 
-                Row {
+                Item {
                     width: parent.width
+                    height: 18
+
                     Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
                         text: "Alto de la barra (Tamaño de iconos)"
                         color: "#EEEEEE"
                         font.pixelSize: 12
                         font.bold: true
                     }
-                    Item { width: 1; height: 1; Layout.fillWidth: true }
                     Text {
                         anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
                         text: Math.round(dockController.iconSize) + " px"
                         color: Qt.rgba(0.4, 0.75, 1.0, 1.0)
                         font.pixelSize: 12
@@ -247,17 +255,21 @@ Window {
                 width: parent.width
                 spacing: 6
 
-                Row {
+                Item {
                     width: parent.width
+                    height: 18
+
                     Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
                         text: "Separación entre iconos"
                         color: "#EEEEEE"
                         font.pixelSize: 12
                         font.bold: true
                     }
-                    Item { width: 1; height: 1; Layout.fillWidth: true }
                     Text {
                         anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
                         text: Math.round(dockController.itemSpacing) + " px"
                         color: Qt.rgba(0.4, 0.75, 1.0, 1.0)
                         font.pixelSize: 12
@@ -312,11 +324,12 @@ Window {
                 width: parent.width
                 spacing: 8
 
-                Row {
+                Item {
                     width: parent.width
-                    spacing: 12
+                    height: 22
 
                     Text {
+                        anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Forma de píldora redondeada automática"
                         color: "#EEEEEE"
@@ -324,11 +337,10 @@ Window {
                         font.bold: true
                     }
 
-                    Item { width: 1; height: 1; Layout.fillWidth: true }
-
                     // Toggle switch
                     Rectangle {
                         anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
                         width: 38
                         height: 20
                         radius: 10
@@ -358,16 +370,20 @@ Window {
                     enabled: !dockController.autoCornerRadius
                     spacing: 6
 
-                    Row {
+                    Item {
                         width: parent.width
+                        height: 18
+
                         Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
                             text: "Radio de esquinas personalizado"
                             color: "#CCCCCC"
                             font.pixelSize: 11
                         }
-                        Item { width: 1; height: 1; Layout.fillWidth: true }
                         Text {
                             anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
                             text: Math.round(dockController.cornerRadius) + " px"
                             color: Qt.rgba(0.4, 0.75, 1.0, 1.0)
                             font.pixelSize: 11
