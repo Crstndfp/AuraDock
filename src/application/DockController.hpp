@@ -180,7 +180,8 @@ private slots:
 
 private:
     void recomputeLayout();
-    int findSeparatorIndex() const;
+    int findUnpinnedInsertIndex() const;
+    int findMainSeparatorIndex() const;
     void applySettingsToEngine();
     void loadSettings();
     void saveSettings();

@@ -269,23 +269,23 @@ void DockController::setWindowTracker(domain::interfaces::IWindowTracker* tracke
     syncOpenWindows();
 }
 
-int DockController::findSeparatorIndex() const {
-    // If there is a DocumentStack, place unpinned running apps before the separator preceding it
+int DockController::findUnpinnedInsertIndex() const {
+    // Unpinned running apps are placed after the separator and before DocumentStack (folders)
     for (size_t i = 0; i < m_items.size(); ++i) {
         if (m_items[i].type == domain::entities::DockItemType::DocumentStack) {
-            if (i > 0 && m_items[i - 1].type == domain::entities::DockItemType::Separator) {
-                return static_cast<int>(i - 1);
-            }
             return static_cast<int>(i);
         }
     }
-    // Otherwise look for the last separator
-    for (int i = static_cast<int>(m_items.size()) - 1; i >= 0; --i) {
+    return static_cast<int>(m_items.size());
+}
+
+int DockController::findMainSeparatorIndex() const {
+    for (size_t i = 0; i < m_items.size(); ++i) {
         if (m_items[i].type == domain::entities::DockItemType::Separator) {
-            return i;
+            return static_cast<int>(i);
         }
     }
-    return static_cast<int>(m_items.size());
+    return -1;
 }
 
 void DockController::syncOpenWindows() {
@@ -364,7 +364,22 @@ void DockController::syncOpenWindows() {
                 .runningWindowCount = win.windowCount
             };
 
-            const int insertIndex = findSeparatorIndex();
+            // Ensure a separator exists between pinned items and unpinned apps/folder
+            if (findMainSeparatorIndex() == -1) {
+                domain::entities::DockItem sep{
+                    .id = "separator_recent",
+                    .name = "Separator",
+                    .iconName = "",
+                    .type = domain::entities::DockItemType::Separator,
+                    .isPinned = true
+                };
+                const int sepIdx = findUnpinnedInsertIndex();
+                beginInsertRows(QModelIndex(), sepIdx, sepIdx);
+                m_items.insert(m_items.begin() + sepIdx, std::move(sep));
+                endInsertRows();
+            }
+
+            const int insertIndex = findUnpinnedInsertIndex();
             beginInsertRows(QModelIndex(), insertIndex, insertIndex);
             m_items.insert(m_items.begin() + insertIndex, std::move(newItem));
             endInsertRows();
@@ -484,6 +499,21 @@ void DockController::pinApp(int index) {
     m_items[index].isPinned = true;
     const auto idx = createIndex(index, 0);
     emit dataChanged(idx, idx, {IsPinnedRole, NameRole, IconNameRole});
+
+    // If this newly pinned app is located after the separator, move it to the pinned section (before separator)
+    const int sepIdx = findMainSeparatorIndex();
+    if (sepIdx >= 0 && index > sepIdx) {
+        auto item = std::move(m_items[index]);
+        beginRemoveRows(QModelIndex(), index, index);
+        m_items.erase(m_items.begin() + index);
+        endRemoveRows();
+
+        const int targetIdx = findMainSeparatorIndex();
+        beginInsertRows(QModelIndex(), targetIdx, targetIdx);
+        m_items.insert(m_items.begin() + targetIdx, std::move(item));
+        endInsertRows();
+        recomputeLayout();
+    }
 }
 
 void DockController::unpinApp(int index) {
@@ -499,6 +529,21 @@ void DockController::unpinApp(int index) {
         m_items[index].isPinned = false;
         const auto idx = createIndex(index, 0);
         emit dataChanged(idx, idx, {IsPinnedRole});
+
+        // If this running unpinned app is before the separator, move it to the unpinned section (after separator, before folder)
+        const int sepIdx = findMainSeparatorIndex();
+        if (sepIdx >= 0 && index < sepIdx) {
+            auto item = std::move(m_items[index]);
+            beginRemoveRows(QModelIndex(), index, index);
+            m_items.erase(m_items.begin() + index);
+            endRemoveRows();
+
+            const int targetIdx = findUnpinnedInsertIndex();
+            beginInsertRows(QModelIndex(), targetIdx, targetIdx);
+            m_items.insert(m_items.begin() + targetIdx, std::move(item));
+            endInsertRows();
+            recomputeLayout();
+        }
     }
 }
 

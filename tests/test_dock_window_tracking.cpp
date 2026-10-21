@@ -88,8 +88,15 @@ TEST(DockWindowTrackingTest, UnpinnedRunningAppIsDynamicallyAddedAndRemovedOnClo
     // Row count should increase to 3
     EXPECT_EQ(controller.rowCount(), 3);
 
-    // The unpinned app should be inserted right before the separator (index 1)
-    auto spotifyIdx = controller.index(1, 0);
+    // All pinned apps must be on the left, separator follows, unpinned app is after separator (index 2)
+    auto dolphinIdx = controller.index(0, 0);
+    EXPECT_EQ(controller.data(dolphinIdx, DockController::TypeRole).toInt(), static_cast<int>(DockItemType::AppLauncher));
+    EXPECT_TRUE(controller.data(dolphinIdx, DockController::IsPinnedRole).toBool());
+
+    auto sepIdx = controller.index(1, 0);
+    EXPECT_EQ(controller.data(sepIdx, DockController::TypeRole).toInt(), static_cast<int>(DockItemType::Separator));
+
+    auto spotifyIdx = controller.index(2, 0);
     EXPECT_EQ(controller.data(spotifyIdx, DockController::NameRole).toString().toStdString(), "Spotify");
     EXPECT_FALSE(controller.data(spotifyIdx, DockController::IsPinnedRole).toBool());
     EXPECT_TRUE(controller.data(spotifyIdx, DockController::IsRunningRole).toBool());
@@ -100,8 +107,173 @@ TEST(DockWindowTrackingTest, UnpinnedRunningAppIsDynamicallyAddedAndRemovedOnClo
 
     // Spotify must be removed from dock, row count back to 2
     EXPECT_EQ(controller.rowCount(), 2);
-    auto sepIdx = controller.index(1, 0);
-    EXPECT_EQ(controller.data(sepIdx, DockController::TypeRole).toInt(), static_cast<int>(DockItemType::Separator));
+    auto finalSepIdx = controller.index(1, 0);
+    EXPECT_EQ(controller.data(finalSepIdx, DockController::TypeRole).toInt(), static_cast<int>(DockItemType::Separator));
+}
+
+TEST(DockWindowTrackingTest, UnpinnedAppsArePositionedInTheMiddleBetweenSeparatorAndFolder) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    std::vector<DockItem> items = {
+        DockItem{.id = "org.kde.dolphin.desktop", .name = "Dolphin", .iconName = "dolphin", .type = DockItemType::AppLauncher, .isPinned = true},
+        DockItem{.id = "separator_recent", .name = "Separator", .iconName = "", .type = DockItemType::Separator, .isPinned = true},
+        DockItem{.id = "/home/cflores/Downloads", .name = "Downloads", .iconName = "folder-download", .type = DockItemType::DocumentStack, .isPinned = true}
+    };
+    controller.setItems(items);
+    controller.setWindowTracker(&tracker);
+
+    ASSERT_EQ(controller.rowCount(), 3);
+
+    // Open Spotify and VLC (unpinned)
+    std::vector<WindowInstance> windows = {
+        WindowInstance{
+            .id = 2,
+            .appId = "spotify",
+            .title = "Spotify",
+            .iconName = "spotify",
+            .isMaximized = false,
+            .isMinimized = false,
+            .isFullscreen = false,
+            .isActive = false,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = ""
+        },
+        WindowInstance{
+            .id = 3,
+            .appId = "vlc",
+            .title = "VLC media player",
+            .iconName = "vlc",
+            .isMaximized = false,
+            .isMinimized = false,
+            .isFullscreen = false,
+            .isActive = true,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = ""
+        }
+    };
+    tracker.simulateWindowChange(windows);
+
+    // Row count should be 5: [Dolphin, Separator, Spotify, VLC, Downloads]
+    ASSERT_EQ(controller.rowCount(), 5);
+
+    // 0: Dolphin (pinned)
+    EXPECT_EQ(controller.data(controller.index(0, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
+    EXPECT_TRUE(controller.data(controller.index(0, 0), DockController::IsPinnedRole).toBool());
+
+    // 1: Separator
+    EXPECT_EQ(controller.data(controller.index(1, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::Separator));
+
+    // 2: Spotify (unpinned, in middle)
+    EXPECT_EQ(controller.data(controller.index(2, 0), DockController::NameRole).toString().toStdString(), "Spotify");
+    EXPECT_FALSE(controller.data(controller.index(2, 0), DockController::IsPinnedRole).toBool());
+
+    // 3: VLC (unpinned, in middle)
+    EXPECT_EQ(controller.data(controller.index(3, 0), DockController::NameRole).toString().toStdString(), "VLC media player");
+    EXPECT_FALSE(controller.data(controller.index(3, 0), DockController::IsPinnedRole).toBool());
+
+    // 4: Downloads (folder on far right)
+    EXPECT_EQ(controller.data(controller.index(4, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::DocumentStack));
+}
+
+TEST(DockWindowTrackingTest, PinningUnpinnedAppMovesItToTheLeftOfSeparator) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    std::vector<DockItem> items = {
+        DockItem{.id = "org.kde.dolphin.desktop", .name = "Dolphin", .iconName = "dolphin", .type = DockItemType::AppLauncher, .isPinned = true},
+        DockItem{.id = "separator_recent", .name = "Separator", .iconName = "", .type = DockItemType::Separator, .isPinned = true},
+        DockItem{.id = "/home/cflores/Downloads", .name = "Downloads", .iconName = "folder-download", .type = DockItemType::DocumentStack, .isPinned = true}
+    };
+    controller.setItems(items);
+    controller.setWindowTracker(&tracker);
+
+    // Open Spotify (unpinned, inserted at index 2)
+    std::vector<WindowInstance> windows = {
+        WindowInstance{
+            .id = 2,
+            .appId = "spotify",
+            .title = "Spotify",
+            .iconName = "spotify",
+            .isMaximized = false,
+            .isMinimized = false,
+            .isFullscreen = false,
+            .isActive = true,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = ""
+        }
+    };
+    tracker.simulateWindowChange(windows);
+    ASSERT_EQ(controller.rowCount(), 4);
+    EXPECT_EQ(controller.data(controller.index(2, 0), DockController::NameRole).toString().toStdString(), "Spotify");
+
+    // Pin Spotify (index 2)
+    controller.pinApp(2);
+
+    // Row count remains 4, but Spotify is now at index 1 (before separator), and separator is at index 2
+    ASSERT_EQ(controller.rowCount(), 4);
+    EXPECT_EQ(controller.data(controller.index(0, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
+    EXPECT_TRUE(controller.data(controller.index(0, 0), DockController::IsPinnedRole).toBool());
+
+    EXPECT_EQ(controller.data(controller.index(1, 0), DockController::NameRole).toString().toStdString(), "Spotify");
+    EXPECT_TRUE(controller.data(controller.index(1, 0), DockController::IsPinnedRole).toBool());
+
+    EXPECT_EQ(controller.data(controller.index(2, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::Separator));
+    EXPECT_EQ(controller.data(controller.index(3, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::DocumentStack));
+}
+
+TEST(DockWindowTrackingTest, UnpinningRunningAppMovesItBetweenSeparatorAndFolder) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    std::vector<DockItem> items = {
+        DockItem{.id = "org.kde.dolphin.desktop", .name = "Dolphin", .iconName = "dolphin", .type = DockItemType::AppLauncher, .isPinned = true},
+        DockItem{.id = "firefox.desktop", .name = "Firefox", .iconName = "firefox", .type = DockItemType::AppLauncher, .isPinned = true},
+        DockItem{.id = "separator_recent", .name = "Separator", .iconName = "", .type = DockItemType::Separator, .isPinned = true},
+        DockItem{.id = "/home/cflores/Downloads", .name = "Downloads", .iconName = "folder-download", .type = DockItemType::DocumentStack, .isPinned = true}
+    };
+    controller.setItems(items);
+    controller.setWindowTracker(&tracker);
+
+    // Dolphin is running
+    std::vector<WindowInstance> windows = {
+        WindowInstance{
+            .id = 1,
+            .appId = "org.kde.dolphin",
+            .title = "Dolphin",
+            .iconName = "dolphin",
+            .isMaximized = false,
+            .isMinimized = false,
+            .isFullscreen = false,
+            .isActive = true,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = ""
+        }
+    };
+    tracker.simulateWindowChange(windows);
+
+    // Dolphin is at index 0 and running
+    EXPECT_TRUE(controller.data(controller.index(0, 0), DockController::IsRunningRole).toBool());
+
+    // Unpin Dolphin (index 0)
+    controller.unpinApp(0);
+
+    // Row count remains 4: [Firefox (pinned), Separator, Dolphin (unpinned, running), Downloads (folder)]
+    ASSERT_EQ(controller.rowCount(), 4);
+    EXPECT_EQ(controller.data(controller.index(0, 0), DockController::NameRole).toString().toStdString(), "Firefox");
+    EXPECT_TRUE(controller.data(controller.index(0, 0), DockController::IsPinnedRole).toBool());
+
+    EXPECT_EQ(controller.data(controller.index(1, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::Separator));
+
+    EXPECT_EQ(controller.data(controller.index(2, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
+    EXPECT_FALSE(controller.data(controller.index(2, 0), DockController::IsPinnedRole).toBool());
+    EXPECT_TRUE(controller.data(controller.index(2, 0), DockController::IsRunningRole).toBool());
+
+    EXPECT_EQ(controller.data(controller.index(3, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::DocumentStack));
 }
 
 TEST(DockWindowTrackingTest, DisambiguatesPrefixAppsSuchAsAntigravityAndAntigravityIde) {
@@ -223,18 +395,22 @@ TEST(DockWindowTrackingTest, UnpinnedReverseDnsAppResolvesDesktopIconAndCanBePin
     };
     tracker.simulateWindowChange(windows);
 
-    // Row count should be 2 (VS Code inserted before separator)
+    // Row count should be 2: [Separator (index 0), VS Code (index 1)]
     ASSERT_EQ(controller.rowCount(), 2);
-    auto codeIdx = controller.index(0, 0);
+    auto codeIdx = controller.index(1, 0);
 
     // Should resolve desktop icon ("vscode") from com.microsoft.VSCode.desktop
     EXPECT_EQ(controller.data(codeIdx, DockController::IconNameRole).toString().toStdString(), "vscode");
     EXPECT_FALSE(controller.data(codeIdx, DockController::IsPinnedRole).toBool());
 
-    // Pin app to dock
-    controller.pinApp(0);
-    EXPECT_TRUE(controller.data(codeIdx, DockController::IsPinnedRole).toBool());
-    EXPECT_EQ(controller.data(codeIdx, DockController::IconNameRole).toString().toStdString(), "vscode");
+    // Pin app to dock (index 1) - moves VS Code to the left of separator (index 0)
+    controller.pinApp(1);
+    auto pinnedCodeIdx = controller.index(0, 0);
+    EXPECT_TRUE(controller.data(pinnedCodeIdx, DockController::IsPinnedRole).toBool());
+    EXPECT_EQ(controller.data(pinnedCodeIdx, DockController::IconNameRole).toString().toStdString(), "vscode");
+
+    auto sepIdx = controller.index(1, 0);
+    EXPECT_EQ(controller.data(sepIdx, DockController::TypeRole).toInt(), static_cast<int>(DockItemType::Separator));
 }
 
 TEST(DockWindowTrackingTest, MultipleInstancesOfSameApp_AggregatesCountAndReturnsIndividualWindowsList) {
