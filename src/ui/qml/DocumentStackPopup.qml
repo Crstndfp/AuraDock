@@ -30,7 +30,7 @@ Item {
     Rectangle {
         id: stackPill
         width: 320
-        height: Math.min(380, contentColumn.implicitHeight + 24)
+        height: Math.min(180, contentColumn.implicitHeight + 24)
         radius: 16
 
         x: Math.min(Math.max(12, root.targetX - width / 2), root.width - width - 12)
@@ -70,7 +70,7 @@ Item {
             // List of items in stack
             ListView {
                 width: parent.width
-                height: Math.min(260, count * 36)
+                height: Math.min(130, count * 36)
                 clip: true
                 model: root.filesList
 

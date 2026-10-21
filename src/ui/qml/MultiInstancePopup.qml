@@ -283,7 +283,7 @@ Item {
         id: windowListContainer
         visible: root.displayMode === 1
         width: 300
-        height: Math.min(280, listColumn.implicitHeight + 24)
+        height: Math.min(180, listColumn.implicitHeight + 24)
         radius: 14
 
         x: Math.min(Math.max(12, root.targetX - width / 2), root.width - width - 12)
@@ -350,7 +350,7 @@ Item {
             // List of Window Instances
             ListView {
                 width: parent.width
-                height: Math.min(210, count * 38)
+                height: Math.min(130, count * 38)
                 clip: true
                 spacing: 4
                 model: root.windowsList

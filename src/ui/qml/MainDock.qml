@@ -6,9 +6,9 @@ Window {
     id: root
     visible: true
 
-    // Dock dimensions across output (expands upward when a popup is open so popups never clip)
+    // Dock dimensions across output
     width: Screen.width > 0 ? Screen.width : 1920
-    height: (multiInstancePopup.isOpen || contextMenu.isOpen || stackPopup.isOpen) ? 380 : 180
+    height: 280
     color: "transparent"
     flags: Qt.FramelessWindowHint
 
