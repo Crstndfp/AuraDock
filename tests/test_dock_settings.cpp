@@ -184,3 +184,52 @@ TEST_F(DockSettingsTest, ResetSettingsRestoresDefaultValues) {
     EXPECT_TRUE(controller.autoCornerRadius());
     EXPECT_EQ(controller.multiInstanceMode(), 0);
 }
+
+TEST_F(DockSettingsTest, SaveSettingsAndLoadSettings_PersistsAllAppearanceValuesAndItems) {
+    // Customize appearance
+    controller.setBottomMargin(28.0);
+    controller.setBarHeight(76.0);
+    controller.setIconBottomMargin(14.0);
+    controller.setIconSize(56.0);
+    controller.setItemSpacing(16.0);
+    controller.setSeparatorSpacing(18.0);
+    controller.setPillPaddingX(24.0);
+    controller.setAutoCornerRadius(false);
+    controller.setCornerRadius(10.0);
+    controller.setMultiInstanceMode(1);
+
+    // Customize items
+    std::vector<DockItem> customItems = {
+        DockItem{.id = "custom_app.desktop", .name = "Custom App", .iconName = "custom_icon", .type = DockItemType::AppLauncher, .isPinned = true},
+        DockItem{.id = "sep_custom", .name = "Separator", .iconName = "", .type = DockItemType::Separator, .isPinned = true},
+        DockItem{.id = "/home/cflores/Documents", .name = "Documents", .iconName = "folder", .type = DockItemType::DocumentStack, .isPinned = true}
+    };
+    controller.setItems(customItems);
+
+    EXPECT_TRUE(controller.hasSavedItems());
+    EXPECT_EQ(controller.rowCount(), 3);
+
+    // Create a new controller instance which automatically executes loadSettings() in its constructor
+    DockController freshController;
+    EXPECT_TRUE(freshController.hasSavedItems());
+    EXPECT_EQ(freshController.rowCount(), 3);
+
+    // Verify appearance persistence
+    EXPECT_DOUBLE_EQ(freshController.bottomMargin(), 28.0);
+    EXPECT_DOUBLE_EQ(freshController.barHeight(), 76.0);
+    EXPECT_DOUBLE_EQ(freshController.iconBottomMargin(), 14.0);
+    EXPECT_DOUBLE_EQ(freshController.iconSize(), 56.0);
+    EXPECT_DOUBLE_EQ(freshController.itemSpacing(), 16.0);
+    EXPECT_DOUBLE_EQ(freshController.separatorSpacing(), 18.0);
+    EXPECT_DOUBLE_EQ(freshController.pillPaddingX(), 24.0);
+    EXPECT_FALSE(freshController.autoCornerRadius());
+    EXPECT_DOUBLE_EQ(freshController.cornerRadius(), 10.0);
+    EXPECT_EQ(freshController.multiInstanceMode(), 1);
+
+    // Verify items persistence
+    EXPECT_EQ(freshController.data(freshController.index(0, 0), DockController::NameRole).toString().toStdString(), "Custom App");
+    EXPECT_EQ(freshController.data(freshController.index(0, 0), DockController::IconNameRole).toString().toStdString(), "custom_icon");
+    EXPECT_EQ(freshController.data(freshController.index(1, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::Separator));
+    EXPECT_EQ(freshController.data(freshController.index(2, 0), DockController::NameRole).toString().toStdString(), "Documents");
+    EXPECT_EQ(freshController.data(freshController.index(2, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::DocumentStack));
+}

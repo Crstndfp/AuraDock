@@ -155,6 +155,10 @@ public:
     Q_INVOKABLE void resetSettingsToDefaults();
     Q_INVOKABLE void openSettingsWindow() { setSettingsOpen(true); }
     Q_INVOKABLE void closeSettingsWindow() { setSettingsOpen(false); }
+    Q_INVOKABLE void saveSettings();
+    Q_INVOKABLE void loadSettings();
+    [[nodiscard]] bool hasSavedItems() const;
+    [[nodiscard]] static QString configFilePath();
 
     // Add items programmatically
     void addItem(domain::entities::DockItem item);
@@ -183,8 +187,6 @@ private:
     int findUnpinnedInsertIndex() const;
     int findMainSeparatorIndex() const;
     void applySettingsToEngine();
-    void loadSettings();
-    void saveSettings();
 
     std::vector<domain::entities::DockItem> m_items;
     domain::interfaces::IWindowTracker* m_windowTracker{nullptr};

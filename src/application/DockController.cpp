@@ -1,6 +1,8 @@
 #include "application/DockController.hpp"
 #include "infrastructure/xdg/XdgDesktopRepository.hpp"
 #include <QFileInfo>
+#include <QDir>
+#include <QStandardPaths>
 #include <QUrl>
 #include <QDebug>
 #include <QSettings>
@@ -514,6 +516,7 @@ void DockController::pinApp(int index) {
         endInsertRows();
         recomputeLayout();
     }
+    saveSettings();
 }
 
 void DockController::unpinApp(int index) {
@@ -545,6 +548,7 @@ void DockController::unpinApp(int index) {
             recomputeLayout();
         }
     }
+    saveSettings();
 }
 
 void DockController::closeItem(int index) {
@@ -583,6 +587,7 @@ void DockController::setItems(std::vector<domain::entities::DockItem> items) {
     m_items = std::move(items);
     endResetModel();
     recomputeLayout();
+    saveSettings();
 }
 
 void DockController::setBottomMargin(double val) {
@@ -705,6 +710,7 @@ void DockController::insertSeparator(int afterIndex) {
     endInsertRows();
 
     recomputeLayout();
+    saveSettings();
 }
 
 void DockController::removeSeparator(int index) {
@@ -720,6 +726,7 @@ void DockController::removeSeparator(int index) {
     endRemoveRows();
 
     recomputeLayout();
+    saveSettings();
 }
 
 void DockController::applySettingsToEngine() {
@@ -739,8 +746,23 @@ void DockController::applySettingsToEngine() {
     emit settingsChanged();
 }
 
+QString DockController::configFilePath() {
+    const QString configDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + QStringLiteral("/cachy-dock");
+    QDir().mkpath(configDir);
+    const QString newPath = configDir + QStringLiteral("/dock.conf");
+    const QString legacyPath = configDir + QStringLiteral("/cachy-dock.conf");
+    if (!QFileInfo::exists(newPath) && QFileInfo::exists(legacyPath)) {
+        return legacyPath;
+    }
+    return newPath;
+}
+
+bool DockController::hasSavedItems() const {
+    return !m_items.empty();
+}
+
 void DockController::loadSettings() {
-    QSettings settings("cachy-dock", "cachy-dock");
+    QSettings settings(configFilePath(), QSettings::IniFormat);
     m_settings.bottomMargin = settings.value("appearance/bottomMargin", 12.0).toDouble();
     m_settings.barHeight = settings.value("appearance/barHeight", 64.0).toDouble();
     m_settings.iconBottomMargin = settings.value("appearance/iconBottomMargin", 8.0).toDouble();
@@ -751,10 +773,40 @@ void DockController::loadSettings() {
     m_settings.cornerRadius = settings.value("appearance/cornerRadius", 20.0).toDouble();
     m_settings.autoCornerRadius = settings.value("appearance/autoCornerRadius", true).toBool();
     m_settings.multiInstanceMode = std::clamp(settings.value("appearance/multiInstanceMode", 0).toInt(), 0, 1);
+
+    const int itemCount = settings.beginReadArray(QStringLiteral("items"));
+    if (itemCount > 0) {
+        std::vector<domain::entities::DockItem> loaded;
+        loaded.reserve(itemCount);
+        for (int i = 0; i < itemCount; ++i) {
+            settings.setArrayIndex(i);
+            domain::entities::DockItem item{
+                .id = settings.value(QStringLiteral("id")).toString().toStdString(),
+                .name = settings.value(QStringLiteral("name")).toString().toStdString(),
+                .iconName = settings.value(QStringLiteral("iconName")).toString().toStdString(),
+                .type = static_cast<domain::entities::DockItemType>(settings.value(QStringLiteral("type"), 0).toInt()),
+                .isPinned = true,
+                .isRunning = false,
+                .isFocused = false,
+                .runningWindowCount = 0
+            };
+            if (!item.id.empty() || item.type == domain::entities::DockItemType::Separator) {
+                loaded.push_back(std::move(item));
+            }
+        }
+        settings.endArray();
+        if (!loaded.empty()) {
+            beginResetModel();
+            m_items = std::move(loaded);
+            endResetModel();
+        }
+    } else {
+        settings.endArray();
+    }
 }
 
 void DockController::saveSettings() {
-    QSettings settings("cachy-dock", "cachy-dock");
+    QSettings settings(configFilePath(), QSettings::IniFormat);
     settings.setValue("appearance/bottomMargin", m_settings.bottomMargin);
     settings.setValue("appearance/barHeight", m_settings.barHeight);
     settings.setValue("appearance/iconBottomMargin", m_settings.iconBottomMargin);
@@ -765,6 +817,21 @@ void DockController::saveSettings() {
     settings.setValue("appearance/cornerRadius", m_settings.cornerRadius);
     settings.setValue("appearance/autoCornerRadius", m_settings.autoCornerRadius);
     settings.setValue("appearance/multiInstanceMode", m_settings.multiInstanceMode);
+
+    settings.remove(QStringLiteral("items"));
+    settings.beginWriteArray(QStringLiteral("items"));
+    int savedCount = 0;
+    for (const auto &item : m_items) {
+        if (item.isPinned || item.type == domain::entities::DockItemType::Separator || item.type == domain::entities::DockItemType::DocumentStack) {
+            settings.setArrayIndex(savedCount++);
+            settings.setValue(QStringLiteral("id"), QString::fromStdString(item.id));
+            settings.setValue(QStringLiteral("name"), QString::fromStdString(item.name));
+            settings.setValue(QStringLiteral("iconName"), QString::fromStdString(item.iconName));
+            settings.setValue(QStringLiteral("type"), static_cast<int>(item.type));
+        }
+    }
+    settings.endArray();
+    settings.sync();
 }
 
 void DockController::recomputeLayout() {

@@ -28,9 +28,11 @@ int main(int argc, char *argv[]) {
     cachy_dock::infrastructure::xdg::XdgDesktopRepository xdgRepo;
     auto kwinTracker = std::make_unique<cachy_dock::infrastructure::trackers::KWinWaylandTracker>();
 
-    // Populate initial items
-    auto initialItems = xdgRepo.getDefaultPinnedApps();
-    dockController->setItems(std::move(initialItems));
+    // Populate initial items only if no configuration exists yet
+    if (!dockController->hasSavedItems()) {
+        auto initialItems = xdgRepo.getDefaultPinnedApps();
+        dockController->setItems(std::move(initialItems));
+    }
 
     // Connect and start native Wayland window tracking
     dockController->setWindowTracker(kwinTracker.get());
