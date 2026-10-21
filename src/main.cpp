@@ -24,6 +24,26 @@ int main(int argc, char *argv[]) {
     app.setOrganizationDomain(QStringLiteral("cachyos.org"));
     app.setWindowIcon(QIcon::fromTheme(QStringLiteral("preferences-system-windows")));
 
+    // Initialize XDG icon theme search paths and default theme for standalone Wayland sessions
+    QStringList searchPaths = QIcon::themeSearchPaths();
+    searchPaths << QDir::homePath() + QStringLiteral("/.local/share/icons")
+                << QDir::homePath() + QStringLiteral("/.icons")
+                << QStringLiteral("/usr/share/icons")
+                << QStringLiteral("/usr/local/share/icons")
+                << QStringLiteral("/usr/share/pixmaps");
+    searchPaths.removeDuplicates();
+    QIcon::setThemeSearchPaths(searchPaths);
+
+    if (QIcon::themeName().isEmpty()) {
+        if (QDir(QStringLiteral("/usr/share/icons/breeze-dark")).exists()) {
+            QIcon::setThemeName(QStringLiteral("breeze-dark"));
+        } else if (QDir(QStringLiteral("/usr/share/icons/breeze")).exists()) {
+            QIcon::setThemeName(QStringLiteral("breeze"));
+        } else {
+            QIcon::setThemeName(QStringLiteral("hicolor"));
+        }
+    }
+
     auto dockController = std::make_unique<cachy_dock::application::DockController>();
     cachy_dock::infrastructure::xdg::XdgDesktopRepository xdgRepo;
     auto kwinTracker = std::make_unique<cachy_dock::infrastructure::trackers::KWinWaylandTracker>();

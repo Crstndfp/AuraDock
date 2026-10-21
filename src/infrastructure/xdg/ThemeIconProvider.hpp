@@ -45,7 +45,7 @@ public:
 
         // QIcon::fromTheme touches QGuiApplication's internal icon theme engine and installs event filters.
         // It MUST be invoked on the GUI thread to prevent cross-thread parent/eventFilter errors.
-        if (QThread::currentThread() != qApp->thread()) {
+        if (qApp && QThread::currentThread() != qApp->thread()) {
             QMetaObject::invokeMethod(qApp, [this, id, width, height, &resultImage]() {
                 resultImage = loadIcon(id, width, height);
             }, Qt::BlockingQueuedConnection);
@@ -63,21 +63,39 @@ public:
 
 private:
     QImage loadIcon(const QString &id, int width, int height) {
-        QIcon icon = QIcon::fromTheme(id);
+        QString cleanId = id;
+        if (cleanId.endsWith(QLatin1String(".desktop"), Qt::CaseInsensitive)) {
+            cleanId.chop(8);
+        }
+
+        QIcon icon = QIcon::fromTheme(cleanId);
+        if (icon.isNull() && cleanId != id) {
+            icon = QIcon::fromTheme(id);
+        }
         if (icon.isNull()) {
             icon = QIcon(id);
         }
 
         // Try standard KDE reverse-DNS prefix (e.g. "dolphin" -> "org.kde.dolphin")
-        if (icon.isNull() && !id.contains(QLatin1Char('.'))) {
-            icon = QIcon::fromTheme(QLatin1String("org.kde.") + id);
+        if (icon.isNull() && !cleanId.contains(QLatin1Char('.'))) {
+            icon = QIcon::fromTheme(QLatin1String("org.kde.") + cleanId);
         }
 
-        // If id is a reverse-DNS appId (e.g. com.microsoft.VSCode), resolve via its .desktop file
+        // Specific fallbacks for common apps (Dolphin, Konsole)
+        if (icon.isNull() && (cleanId == QLatin1String("dolphin") || cleanId == QLatin1String("org.kde.dolphin"))) {
+            icon = QIcon::fromTheme(QLatin1String("system-file-manager"));
+            if (icon.isNull() && QFileInfo::exists(QStringLiteral("/usr/share/icons/hicolor/scalable/apps/org.kde.dolphin.svg"))) {
+                icon = QIcon(QStringLiteral("/usr/share/icons/hicolor/scalable/apps/org.kde.dolphin.svg"));
+            }
+        } else if (icon.isNull() && (cleanId == QLatin1String("konsole") || cleanId == QLatin1String("org.kde.konsole"))) {
+            icon = QIcon::fromTheme(QLatin1String("utilities-terminal"));
+        }
+
+        // If cleanId is a reverse-DNS appId (e.g. com.microsoft.VSCode), resolve via its .desktop file
         if (icon.isNull()) {
             static const auto appDirs = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
             for (const auto &dir : appDirs) {
-                QString candidate = dir + QLatin1Char('/') + id;
+                QString candidate = dir + QLatin1Char('/') + cleanId;
                 if (!candidate.endsWith(QLatin1String(".desktop"), Qt::CaseInsensitive)) {
                     candidate += QLatin1String(".desktop");
                 }
@@ -85,7 +103,7 @@ private:
                     QSettings desktopFile(candidate, QSettings::IniFormat);
                     desktopFile.beginGroup("Desktop Entry");
                     const QString desktopIcon = desktopFile.value("Icon").toString();
-                    if (!desktopIcon.isEmpty() && desktopIcon != id) {
+                    if (!desktopIcon.isEmpty() && desktopIcon != cleanId && desktopIcon != id) {
                         return loadIcon(desktopIcon, width, height);
                     }
                     break;
@@ -100,7 +118,11 @@ private:
                 QStringLiteral("/usr/share/icons/hicolor/48x48/apps"),
                 QStringLiteral("/usr/share/icons/hicolor/128x128/apps"),
                 QStringLiteral("/usr/share/icons/hicolor/256x256/apps"),
-                QStringLiteral("/usr/share/icons/hicolor/512x512/apps")
+                QStringLiteral("/usr/share/icons/hicolor/512x512/apps"),
+                QStringLiteral("/usr/share/icons/breeze-dark/apps/48"),
+                QStringLiteral("/usr/share/icons/breeze-dark/places/48"),
+                QStringLiteral("/usr/share/icons/breeze/apps/48"),
+                QStringLiteral("/usr/share/icons/breeze/places/48")
             };
             static const QStringList extensions = {
                 QStringLiteral(".png"),
@@ -108,10 +130,18 @@ private:
                 QStringLiteral(".xpm")
             };
 
-            // Try exact id, lowercase, and reverse-DNS suffix (e.g. com.microsoft.VSCode -> vscode)
-            QStringList namesToTry = { id, id.toLower() };
-            const QString suffix = id.section(QLatin1Char('.'), -1);
-            if (!suffix.isEmpty() && suffix != id) {
+            // Try exact cleanId, lowercase, and reverse-DNS suffix (e.g. com.microsoft.VSCode -> vscode)
+            QStringList namesToTry = { cleanId, cleanId.toLower() };
+            if (cleanId != id) {
+                namesToTry << id << id.toLower();
+            }
+            if (cleanId == QLatin1String("dolphin")) {
+                namesToTry << QStringLiteral("org.kde.dolphin");
+            } else if (cleanId == QLatin1String("org.kde.dolphin")) {
+                namesToTry << QStringLiteral("dolphin");
+            }
+            const QString suffix = cleanId.section(QLatin1Char('.'), -1);
+            if (!suffix.isEmpty() && suffix != cleanId) {
                 namesToTry << suffix << suffix.toLower();
             }
 

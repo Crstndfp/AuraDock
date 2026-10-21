@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
+#include <QGuiApplication>
+#include <QStandardPaths>
 #include "infrastructure/xdg/XdgDesktopRepository.hpp"
+#include "infrastructure/xdg/ThemeIconProvider.hpp"
 
 using namespace cachy_dock::infrastructure::xdg;
 
@@ -44,4 +47,35 @@ TEST(XdgDesktopRepositoryTest, ResolveReverseDnsWildcard_ResolvesDolphinDesktopF
     EXPECT_EQ(item->name, "Dolphin");
     EXPECT_EQ(item->iconName, "org.kde.dolphin");
     EXPECT_TRUE(item->id.find("org.kde.dolphin.desktop") != std::string::npos);
+}
+
+TEST(XdgDesktopRepositoryTest, ThemeIconProvider_ResolvesDolphinIcon) {
+    int argc = 0;
+    char *argv[] = { nullptr };
+    std::unique_ptr<QGuiApplication> app;
+    if (!qApp) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+        app = std::make_unique<QGuiApplication>(argc, argv);
+    }
+
+    ThemeIconProvider provider;
+    QSize size;
+
+    // Test resolving with full reverse-DNS name
+    QImage imgDolphin = provider.requestImage(QStringLiteral("org.kde.dolphin"), &size, QSize(64, 64));
+    EXPECT_FALSE(imgDolphin.isNull());
+    EXPECT_EQ(imgDolphin.width(), 64);
+    EXPECT_EQ(imgDolphin.height(), 64);
+
+    // Test resolving with shorthand "dolphin"
+    QImage imgShorthand = provider.requestImage(QStringLiteral("dolphin"), &size, QSize(64, 64));
+    EXPECT_FALSE(imgShorthand.isNull());
+    EXPECT_EQ(imgShorthand.width(), 64);
+    EXPECT_EQ(imgShorthand.height(), 64);
+
+    // Test resolving with "dolphin.desktop"
+    QImage imgDesktop = provider.requestImage(QStringLiteral("dolphin.desktop"), &size, QSize(64, 64));
+    EXPECT_FALSE(imgDesktop.isNull());
+    EXPECT_EQ(imgDesktop.width(), 64);
+    EXPECT_EQ(imgDesktop.height(), 64);
 }
