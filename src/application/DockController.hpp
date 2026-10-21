@@ -159,6 +159,7 @@ public:
     Q_INVOKABLE void loadSettings();
     [[nodiscard]] bool hasSavedItems() const;
     [[nodiscard]] static QString configFilePath();
+    static void setConfigPathForTesting(const QString &path);
 
     // Add items programmatically
     void addItem(domain::entities::DockItem item);

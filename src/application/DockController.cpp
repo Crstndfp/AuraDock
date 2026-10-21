@@ -746,7 +746,16 @@ void DockController::applySettingsToEngine() {
     emit settingsChanged();
 }
 
+static QString s_customConfigPath;
+
+void DockController::setConfigPathForTesting(const QString &path) {
+    s_customConfigPath = path;
+}
+
 QString DockController::configFilePath() {
+    if (!s_customConfigPath.isEmpty()) {
+        return s_customConfigPath;
+    }
     const QString configDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + QStringLiteral("/cachy-dock");
     QDir().mkpath(configDir);
     const QString newPath = configDir + QStringLiteral("/dock.conf");
@@ -791,6 +800,19 @@ void DockController::loadSettings() {
                 .runningWindowCount = 0
             };
             if (!item.id.empty() || item.type == domain::entities::DockItemType::Separator) {
+                // Self-heal launchers and stacks with canonical paths and reverse-DNS resolution
+                if (item.type == domain::entities::DockItemType::AppLauncher && !QFileInfo::exists(QString::fromStdString(item.id))) {
+                    auto resolved = infrastructure::xdg::XdgDesktopRepository::resolveDesktopFile(item.id);
+                    if (resolved.has_value()) {
+                        item.id = resolved->id;
+                        if (item.name.empty() || item.name == "Dolphin") item.name = resolved->name;
+                        item.iconName = resolved->iconName;
+                    }
+                } else if (item.type == domain::entities::DockItemType::DocumentStack) {
+                    if (item.id == "downloads" || !QFileInfo::exists(QString::fromStdString(item.id))) {
+                        item.id = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation).toStdString();
+                    }
+                }
                 loaded.push_back(std::move(item));
             }
         }

@@ -68,6 +68,11 @@ private:
             icon = QIcon(id);
         }
 
+        // Try standard KDE reverse-DNS prefix (e.g. "dolphin" -> "org.kde.dolphin")
+        if (icon.isNull() && !id.contains(QLatin1Char('.'))) {
+            icon = QIcon::fromTheme(QLatin1String("org.kde.") + id);
+        }
+
         // If id is a reverse-DNS appId (e.g. com.microsoft.VSCode), resolve via its .desktop file
         if (icon.isNull()) {
             static const auto appDirs = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);

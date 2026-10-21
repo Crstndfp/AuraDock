@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <QFile>
 #include "application/DockController.hpp"
 #include "domain/entities/DockItem.hpp"
 
@@ -8,6 +9,7 @@ using namespace cachy_dock::domain::entities;
 class DockSettingsTest : public ::testing::Test {
 protected:
     void SetUp() override {
+        DockController::setConfigPathForTesting(QStringLiteral("/tmp/test_cachy_dock.conf"));
         std::vector<DockItem> items = {
             DockItem{.id = "dolphin.desktop", .name = "Dolphin", .iconName = "dolphin", .type = DockItemType::AppLauncher, .isPinned = true},
             DockItem{.id = "firefox.desktop", .name = "Firefox", .iconName = "firefox", .type = DockItemType::AppLauncher, .isPinned = true},
@@ -16,6 +18,11 @@ protected:
         };
         controller.resetSettingsToDefaults();
         controller.setItems(items);
+    }
+
+    void TearDown() override {
+        DockController::setConfigPathForTesting(QString());
+        QFile::remove(QStringLiteral("/tmp/test_cachy_dock.conf"));
     }
 
     DockController controller;

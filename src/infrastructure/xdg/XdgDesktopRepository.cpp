@@ -18,7 +18,11 @@ XdgDesktopRepository::~XdgDesktopRepository() = default;
 std::optional<domain::entities::DockItem> XdgDesktopRepository::resolveDesktopFile(const std::string& desktopPathOrName) {
     QString resolvedPath = QString::fromStdString(desktopPathOrName);
 
-    if (!QFileInfo::exists(resolvedPath)) {
+    if (resolvedPath.startsWith(QLatin1Char('/'))) {
+        if (!QFileInfo::exists(resolvedPath)) {
+            return std::nullopt;
+        }
+    } else if (!QFileInfo::exists(resolvedPath)) {
         // Search standard applications directories
         const auto appDirs = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
         bool found = false;
@@ -31,6 +35,21 @@ std::optional<domain::entities::DockItem> XdgDesktopRepository::resolveDesktopFi
                 resolvedPath = candidate;
                 found = true;
                 break;
+            }
+        }
+        if (!found) {
+            // Try reverse-DNS matching (e.g. "dolphin.desktop" or "dolphin" -> "org.kde.dolphin.desktop")
+            const QString base = QFileInfo(resolvedPath).baseName();
+            if (!base.isEmpty()) {
+                for (const auto &dir : appDirs) {
+                    QDir d(dir);
+                    const auto matches = d.entryList({QLatin1String("*.") + base + QLatin1String(".desktop")}, QDir::Files);
+                    if (!matches.isEmpty()) {
+                        resolvedPath = d.filePath(matches.first());
+                        found = true;
+                        break;
+                    }
+                }
             }
         }
         if (!found) {
@@ -145,6 +164,14 @@ bool XdgDesktopRepository::launch(const std::string& execCommand, bool useDiscre
 
 bool XdgDesktopRepository::launchDesktopId(const std::string& desktopId, bool useDiscreteGpu) {
     QString path = QString::fromStdString(desktopId);
+    if (path.startsWith(QLatin1String("~/"))) {
+        path = QDir::homePath() + path.mid(1);
+    }
+    if (path.compare(QLatin1String("downloads"), Qt::CaseInsensitive) == 0) {
+        path = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    } else if (path.compare(QLatin1String("documents"), Qt::CaseInsensitive) == 0) {
+        path = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    }
     QFileInfo info(path);
     if (info.exists() && info.isDir()) {
         return QDesktopServices::openUrl(QUrl::fromLocalFile(path));

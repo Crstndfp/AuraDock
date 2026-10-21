@@ -36,3 +36,12 @@ TEST(XdgDesktopRepositoryTest, LaunchDesktopIdWithNonExistentReturnsFalse) {
     XdgDesktopRepository repo;
     EXPECT_FALSE(repo.launchDesktopId("/non/existent/path/app.desktop", false));
 }
+
+TEST(XdgDesktopRepositoryTest, ResolveReverseDnsWildcard_ResolvesDolphinDesktopFile) {
+    XdgDesktopRepository repo;
+    auto item = repo.resolveDesktopFile("dolphin.desktop");
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->name, "Dolphin");
+    EXPECT_EQ(item->iconName, "org.kde.dolphin");
+    EXPECT_TRUE(item->id.find("org.kde.dolphin.desktop") != std::string::npos);
+}
