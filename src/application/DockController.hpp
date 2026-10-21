@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QVariantMap>
+#include <QVariantList>
 #include <memory>
 #include <vector>
 
@@ -46,6 +47,7 @@ class DockController : public QAbstractListModel {
     Q_PROPERTY(double pillPaddingX READ pillPaddingX WRITE setPillPaddingX NOTIFY settingsChanged)
     Q_PROPERTY(double cornerRadius READ cornerRadius WRITE setCornerRadius NOTIFY settingsChanged)
     Q_PROPERTY(bool autoCornerRadius READ autoCornerRadius WRITE setAutoCornerRadius NOTIFY settingsChanged)
+    Q_PROPERTY(int multiInstanceMode READ multiInstanceMode WRITE setMultiInstanceMode NOTIFY settingsChanged)
     Q_PROPERTY(bool isSettingsOpen READ isSettingsOpen WRITE setSettingsOpen NOTIFY isSettingsOpenChanged)
 
 public:
@@ -121,6 +123,9 @@ public:
     [[nodiscard]] bool autoCornerRadius() const noexcept { return m_settings.autoCornerRadius; }
     void setAutoCornerRadius(bool val);
 
+    [[nodiscard]] int multiInstanceMode() const noexcept { return m_settings.multiInstanceMode; }
+    void setMultiInstanceMode(int val);
+
     [[nodiscard]] bool isSettingsOpen() const noexcept { return m_isSettingsOpen; }
     void setSettingsOpen(bool open);
 
@@ -129,8 +134,11 @@ public:
     Q_INVOKABLE void clearCursor();
     Q_INVOKABLE int itemAt(double x, double y) const;
     Q_INVOKABLE QVariantMap getItemDetails(int index) const;
+    Q_INVOKABLE QVariantList getWindowsForItem(int index) const;
 
     Q_INVOKABLE void launchItem(int index);
+    Q_INVOKABLE void activateWindowInstance(qulonglong windowId);
+    Q_INVOKABLE void closeWindowInstance(qulonglong windowId);
     Q_INVOKABLE void pointerEnteredDock();
     Q_INVOKABLE void pointerLeftDock();
     Q_INVOKABLE void pointerEnteredSensor();
@@ -163,6 +171,7 @@ signals:
     void surfaceDimensionsChanged();
     void settingsChanged();
     void isSettingsOpenChanged();
+    void windowsUpdated();
     void maskUpdateRequired(const QRectF &pillRect, const std::vector<QRectF> &activeIconRects);
     void itemActivated(const QString &id);
 

@@ -38,7 +38,8 @@ TEST(DockWindowTrackingTest, RunningPinnedAppShowsRunningStateAndFocusIndicator)
             .isFullscreen = false,
             .isActive = true,
             .windowCount = 1,
-            .screenName = ""
+            .screenName = "",
+            .waylandUuid = ""
         }
     };
     tracker.simulateWindowChange(windows);
@@ -78,7 +79,8 @@ TEST(DockWindowTrackingTest, UnpinnedRunningAppIsDynamicallyAddedAndRemovedOnClo
             .isFullscreen = false,
             .isActive = true,
             .windowCount = 1,
-            .screenName = ""
+            .screenName = "",
+            .waylandUuid = ""
         }
     };
     tracker.simulateWindowChange(windows);
@@ -128,7 +130,8 @@ TEST(DockWindowTrackingTest, DisambiguatesPrefixAppsSuchAsAntigravityAndAntigrav
             .isFullscreen = false,
             .isActive = true,
             .windowCount = 1,
-            .screenName = ""
+            .screenName = "",
+            .waylandUuid = ""
         }
     };
     tracker.simulateWindowChange(windows);
@@ -147,7 +150,8 @@ TEST(DockWindowTrackingTest, DisambiguatesPrefixAppsSuchAsAntigravityAndAntigrav
         .isFullscreen = false,
         .isActive = false,
         .windowCount = 1,
-        .screenName = ""
+        .screenName = "",
+        .waylandUuid = ""
     });
     tracker.simulateWindowChange(windows);
 
@@ -179,7 +183,8 @@ TEST(DockWindowTrackingTest, ReverseDnsMatchingWorksForFirefox) {
             .isFullscreen = false,
             .isActive = true,
             .windowCount = 1,
-            .screenName = ""
+            .screenName = "",
+            .waylandUuid = ""
         }
     };
     tracker.simulateWindowChange(windows);
@@ -212,7 +217,8 @@ TEST(DockWindowTrackingTest, UnpinnedReverseDnsAppResolvesDesktopIconAndCanBePin
             .isFullscreen = false,
             .isActive = true,
             .windowCount = 1,
-            .screenName = ""
+            .screenName = "",
+            .waylandUuid = ""
         }
     };
     tracker.simulateWindowChange(windows);
@@ -229,4 +235,146 @@ TEST(DockWindowTrackingTest, UnpinnedReverseDnsAppResolvesDesktopIconAndCanBePin
     controller.pinApp(0);
     EXPECT_TRUE(controller.data(codeIdx, DockController::IsPinnedRole).toBool());
     EXPECT_EQ(controller.data(codeIdx, DockController::IconNameRole).toString().toStdString(), "vscode");
+}
+
+TEST(DockWindowTrackingTest, MultipleInstancesOfSameApp_AggregatesCountAndReturnsIndividualWindowsList) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    std::vector<DockItem> items = {
+        DockItem{.id = "org.kde.konsole.desktop", .name = "Konsole", .iconName = "utilities-terminal", .type = DockItemType::AppLauncher, .isPinned = true},
+        DockItem{.id = "separator", .name = "Separator", .iconName = "", .type = DockItemType::Separator, .isPinned = true}
+    };
+    controller.setItems(items);
+    controller.setWindowTracker(&tracker);
+
+    std::vector<WindowInstance> windows = {
+        WindowInstance{
+            .id = 101,
+            .appId = "org.kde.konsole",
+            .title = "cflores@cachyos: ~/projects — Konsole",
+            .iconName = "utilities-terminal",
+            .isMaximized = false,
+            .isMinimized = false,
+            .isFullscreen = false,
+            .isActive = false,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = "{uuid-101}"
+        },
+        WindowInstance{
+            .id = 102,
+            .appId = "org.kde.konsole",
+            .title = "htop — Konsole",
+            .iconName = "utilities-terminal",
+            .isMaximized = false,
+            .isMinimized = true,
+            .isFullscreen = false,
+            .isActive = false,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = "{uuid-102}"
+        },
+        WindowInstance{
+            .id = 103,
+            .appId = "org.kde.konsole",
+            .title = "nvim — Konsole",
+            .iconName = "utilities-terminal",
+            .isMaximized = false,
+            .isMinimized = false,
+            .isFullscreen = false,
+            .isActive = true,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = "{uuid-103}"
+        }
+    };
+    tracker.simulateWindowChange(windows);
+
+    // Must not duplicate dock items for same app
+    EXPECT_EQ(controller.rowCount(), 2);
+
+    auto konsoleIdx = controller.index(0, 0);
+    EXPECT_TRUE(controller.data(konsoleIdx, DockController::IsRunningRole).toBool());
+    EXPECT_TRUE(controller.data(konsoleIdx, DockController::IsFocusedRole).toBool());
+    EXPECT_EQ(controller.data(konsoleIdx, DockController::RunningWindowCountRole).toInt(), 3);
+
+    // Query individual window instances for the switcher popup
+    QVariantList winList = controller.getWindowsForItem(0);
+    ASSERT_EQ(winList.size(), 3);
+
+    auto win0 = winList[0].toMap();
+    auto win1 = winList[1].toMap();
+    auto win2 = winList[2].toMap();
+
+    EXPECT_EQ(win0["windowId"].toULongLong(), 101ULL);
+    EXPECT_EQ(win0["title"].toString().toStdString(), "cflores@cachyos: ~/projects — Konsole");
+    EXPECT_FALSE(win0["isActive"].toBool());
+
+    EXPECT_EQ(win1["windowId"].toULongLong(), 102ULL);
+    EXPECT_EQ(win1["title"].toString().toStdString(), "htop — Konsole");
+    EXPECT_TRUE(win1["isMinimized"].toBool());
+
+    EXPECT_EQ(win2["windowId"].toULongLong(), 103ULL);
+    EXPECT_EQ(win2["title"].toString().toStdString(), "nvim — Konsole");
+    EXPECT_TRUE(win2["isActive"].toBool());
+    EXPECT_EQ(win2["waylandUuid"].toString().toStdString(), "{uuid-103}");
+}
+
+TEST(DockWindowTrackingTest, ActivateAndCloseSpecificWindowInstance_TargetsRequestedWindowId) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    std::vector<DockItem> items = {
+        DockItem{.id = "firefox.desktop", .name = "Firefox", .iconName = "firefox", .type = DockItemType::AppLauncher, .isPinned = true}
+    };
+    controller.setItems(items);
+    controller.setWindowTracker(&tracker);
+
+    std::vector<WindowInstance> windows = {
+        WindowInstance{
+            .id = 201,
+            .appId = "org.mozilla.firefox",
+            .title = "GitHub — Mozilla Firefox",
+            .iconName = "firefox",
+            .isMaximized = false,
+            .isMinimized = false,
+            .isFullscreen = false,
+            .isActive = true,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = ""
+        },
+        WindowInstance{
+            .id = 202,
+            .appId = "org.mozilla.firefox",
+            .title = "CachyOS Wiki — Mozilla Firefox",
+            .iconName = "firefox",
+            .isMaximized = false,
+            .isMinimized = true,
+            .isFullscreen = false,
+            .isActive = false,
+            .windowCount = 1,
+            .screenName = "",
+            .waylandUuid = ""
+        }
+    };
+    tracker.simulateWindowChange(windows);
+
+    // Select second instance (id = 202, which was minimized)
+    controller.activateWindowInstance(202);
+
+    QVariantList updatedList = controller.getWindowsForItem(0);
+    ASSERT_EQ(updatedList.size(), 2);
+    EXPECT_FALSE(updatedList[0].toMap()["isActive"].toBool());
+    EXPECT_TRUE(updatedList[1].toMap()["isActive"].toBool());
+    EXPECT_FALSE(updatedList[1].toMap()["isMinimized"].toBool());
+
+    // Close first instance (id = 201)
+    controller.closeWindowInstance(201);
+
+    QVariantList afterCloseList = controller.getWindowsForItem(0);
+    ASSERT_EQ(afterCloseList.size(), 1);
+    EXPECT_EQ(afterCloseList[0].toMap()["windowId"].toULongLong(), 202ULL);
+    EXPECT_EQ(controller.data(controller.index(0, 0), DockController::RunningWindowCountRole).toInt(), 1);
 }

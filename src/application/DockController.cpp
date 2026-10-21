@@ -219,6 +219,32 @@ QVariantMap DockController::getItemDetails(int index) const {
     };
 }
 
+QVariantList DockController::getWindowsForItem(int index) const {
+    QVariantList result;
+    if (index < 0 || index >= static_cast<int>(m_items.size()) || !m_windowTracker) {
+        return result;
+    }
+
+    const auto &item = m_items[index];
+    const auto openWindows = m_windowTracker->getWindows();
+    for (const auto &win : openWindows) {
+        if (matchesAppId(item.id, win.appId)) {
+            QVariantMap winMap{
+                {QStringLiteral("windowId"), static_cast<qulonglong>(win.id)},
+                {QStringLiteral("appId"), QString::fromStdString(win.appId)},
+                {QStringLiteral("title"), QString::fromStdString(win.title.empty() ? item.name : win.title)},
+                {QStringLiteral("iconName"), QString::fromStdString(item.iconName.empty() ? win.iconName : item.iconName)},
+                {QStringLiteral("isActive"), win.isActive},
+                {QStringLiteral("isMinimized"), win.isMinimized},
+                {QStringLiteral("isMaximized"), win.isMaximized},
+                {QStringLiteral("waylandUuid"), QString::fromStdString(win.waylandUuid)}
+            };
+            result.append(winMap);
+        }
+    }
+    return result;
+}
+
 void DockController::setWindowTracker(domain::interfaces::IWindowTracker* tracker) {
     m_windowTracker = tracker;
     if (!m_windowTracker) {
@@ -349,6 +375,7 @@ void DockController::syncOpenWindows() {
     if (modelChanged) {
         recomputeLayout();
     }
+    emit windowsUpdated();
 }
 
 void DockController::launchItem(int index) {
@@ -375,6 +402,18 @@ void DockController::launchItem(int index) {
     m_items[index].isBouncing = true;
     m_bounceElapsed.restart();
     m_bounceTimer.start();
+}
+
+void DockController::activateWindowInstance(qulonglong windowId) {
+    if (m_windowTracker) {
+        m_windowTracker->activateWindow(static_cast<uint64_t>(windowId));
+    }
+}
+
+void DockController::closeWindowInstance(qulonglong windowId) {
+    if (m_windowTracker) {
+        m_windowTracker->closeWindow(static_cast<uint64_t>(windowId));
+    }
 }
 
 void DockController::onBounceTick() {
@@ -573,6 +612,15 @@ void DockController::setAutoCornerRadius(bool val) {
     }
 }
 
+void DockController::setMultiInstanceMode(int val) {
+    const int clamped = std::clamp(val, 0, 1);
+    if (m_settings.multiInstanceMode != clamped) {
+        m_settings.multiInstanceMode = clamped;
+        saveSettings();
+        emit settingsChanged();
+    }
+}
+
 void DockController::setSettingsOpen(bool open) {
     if (m_isSettingsOpen != open) {
         m_isSettingsOpen = open;
@@ -657,6 +705,7 @@ void DockController::loadSettings() {
     m_settings.pillPaddingX = settings.value("appearance/pillPaddingX", 19.0).toDouble();
     m_settings.cornerRadius = settings.value("appearance/cornerRadius", 20.0).toDouble();
     m_settings.autoCornerRadius = settings.value("appearance/autoCornerRadius", true).toBool();
+    m_settings.multiInstanceMode = std::clamp(settings.value("appearance/multiInstanceMode", 0).toInt(), 0, 1);
 }
 
 void DockController::saveSettings() {
@@ -670,6 +719,7 @@ void DockController::saveSettings() {
     settings.setValue("appearance/pillPaddingX", m_settings.pillPaddingX);
     settings.setValue("appearance/cornerRadius", m_settings.cornerRadius);
     settings.setValue("appearance/autoCornerRadius", m_settings.autoCornerRadius);
+    settings.setValue("appearance/multiInstanceMode", m_settings.multiInstanceMode);
 }
 
 void DockController::recomputeLayout() {

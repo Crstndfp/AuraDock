@@ -52,6 +52,7 @@ void KWinWaylandTracker::start() {
     m_isRunning = true;
 
     m_tasksModel = new TaskManager::TasksModel(this);
+    m_tasksModel->setGroupMode(TaskManager::TasksModel::GroupDisabled);
 
     connect(m_tasksModel, &QAbstractItemModel::rowsInserted, this, &KWinWaylandTracker::onTasksUpdated);
     connect(m_tasksModel, &QAbstractItemModel::rowsRemoved, this, &KWinWaylandTracker::onTasksUpdated);
@@ -81,7 +82,27 @@ bool KWinWaylandTracker::hasMaximizedWindowOnScreen(const std::string& screenNam
 void KWinWaylandTracker::activateWindow(uint64_t windowId) {
     if (m_tasksModel && windowId < static_cast<uint64_t>(m_tasksModel->rowCount())) {
         const auto idx = m_tasksModel->index(static_cast<int>(windowId), 0);
+        const bool isMinimized = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsMinimized).toBool();
+        if (isMinimized) {
+            m_tasksModel->requestToggleMinimized(idx);
+        }
         m_tasksModel->requestActivate(idx);
+        return;
+    }
+
+    // Fallback for simulated test state when m_tasksModel is not active
+    bool updated = false;
+    for (auto &win : m_windows) {
+        if (win.id == windowId) {
+            win.isActive = true;
+            win.isMinimized = false;
+            updated = true;
+        } else {
+            win.isActive = false;
+        }
+    }
+    if (updated && m_onWindowsChanged) {
+        m_onWindowsChanged();
     }
 }
 
@@ -112,6 +133,16 @@ void KWinWaylandTracker::closeWindow(uint64_t windowId) {
     if (m_tasksModel && windowId < static_cast<uint64_t>(m_tasksModel->rowCount())) {
         const auto idx = m_tasksModel->index(static_cast<int>(windowId), 0);
         m_tasksModel->requestClose(idx);
+        return;
+    }
+
+    // Fallback for simulated test state when m_tasksModel is not active
+    const auto oldSize = m_windows.size();
+    std::erase_if(m_windows, [windowId](const domain::entities::WindowInstance &win) {
+        return win.id == windowId;
+    });
+    if (m_windows.size() != oldSize && m_onWindowsChanged) {
+        m_onWindowsChanged();
     }
 }
 
@@ -158,8 +189,11 @@ void KWinWaylandTracker::onTasksUpdated() {
         const auto idx = m_tasksModel->index(r, 0);
 
         const QString appId = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::AppId).toString();
+        const QString displayTitle = m_tasksModel->data(idx, Qt::DisplayRole).toString();
         const QString appName = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::AppName).toString();
         const QString genericName = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::GenericName).toString();
+        const QVariantList winIds = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::WinIdList).toList();
+        const QString waylandUuid = winIds.isEmpty() ? QString() : winIds.first().toString();
         const bool isActive = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsActive).toBool();
         const bool isMaximized = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsMaximized).toBool();
         const bool isMinimized = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsMinimized).toBool();
@@ -174,17 +208,22 @@ void KWinWaylandTracker::onTasksUpdated() {
             activeApp = appId.toStdString();
         }
 
+        const QString resolvedTitle = !displayTitle.isEmpty()
+            ? displayTitle
+            : (!appName.isEmpty() ? appName : (!genericName.isEmpty() ? genericName : appId));
+
         domain::entities::WindowInstance win{
             .id = static_cast<uint64_t>(r),
             .appId = appId.toStdString(),
-            .title = appName.isEmpty() ? (genericName.isEmpty() ? appId.toStdString() : genericName.toStdString()) : appName.toStdString(),
+            .title = resolvedTitle.toStdString(),
             .iconName = appId.toStdString(),
             .isMaximized = isMaximized,
             .isMinimized = isMinimized,
             .isFullscreen = isFullscreen,
             .isActive = isActive,
             .windowCount = childCount,
-            .screenName = ""
+            .screenName = "",
+            .waylandUuid = waylandUuid.toStdString()
         };
         windows.push_back(std::move(win));
     }

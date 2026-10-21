@@ -2,6 +2,11 @@
 
 namespace cachy_dock::domain::entities {
 
+enum class MultiInstanceMode : int {
+    MiniWindows = 0, // Horizontal mini-window preview cards
+    WindowList = 1   // Compact vertical window list
+};
+
 struct DockSettings {
     double bottomMargin{12.0};     // Margin from screen bottom edge
     double barHeight{64.0};        // Dedicated height of the dock pill
@@ -12,6 +17,7 @@ struct DockSettings {
     double pillPaddingX{19.0};     // End padding (+5px extra breathing room at rounded curves)
     double cornerRadius{20.0};      // Custom pill corner curve radius
     bool autoCornerRadius{true};    // If true, cornerRadius = pillHeight / 2.0 (pill shape)
+    int multiInstanceMode{0};       // 0 = MiniWindows, 1 = WindowList
 };
 
 } // namespace cachy_dock::domain::entities

@@ -148,6 +148,19 @@ TEST_F(DockSettingsTest, PillPaddingXHasExtraFivePixelsDefaultCurveClearance) {
     EXPECT_DOUBLE_EQ(controller.pillPaddingX(), 19.0);
 }
 
+TEST_F(DockSettingsTest, ChangingMultiInstanceModeUpdatesPropertyAndClampsBounds) {
+    EXPECT_EQ(controller.multiInstanceMode(), 0); // Default: MiniWindows (0)
+
+    controller.setMultiInstanceMode(1); // WindowList (1)
+    EXPECT_EQ(controller.multiInstanceMode(), 1);
+
+    controller.setMultiInstanceMode(99); // Out-of-bounds clamped to 1
+    EXPECT_EQ(controller.multiInstanceMode(), 1);
+
+    controller.setMultiInstanceMode(-5); // Out-of-bounds clamped to 0
+    EXPECT_EQ(controller.multiInstanceMode(), 0);
+}
+
 TEST_F(DockSettingsTest, ResetSettingsRestoresDefaultValues) {
     controller.setBottomMargin(40.0);
     controller.setBarHeight(80.0);
@@ -157,6 +170,7 @@ TEST_F(DockSettingsTest, ResetSettingsRestoresDefaultValues) {
     controller.setSeparatorSpacing(24.0);
     controller.setAutoCornerRadius(false);
     controller.setCornerRadius(4.0);
+    controller.setMultiInstanceMode(1);
 
     controller.resetSettingsToDefaults();
 
@@ -168,4 +182,5 @@ TEST_F(DockSettingsTest, ResetSettingsRestoresDefaultValues) {
     EXPECT_DOUBLE_EQ(controller.separatorSpacing(), 12.0);
     EXPECT_DOUBLE_EQ(controller.pillPaddingX(), 19.0);
     EXPECT_TRUE(controller.autoCornerRadius());
+    EXPECT_EQ(controller.multiInstanceMode(), 0);
 }

@@ -5,7 +5,7 @@ Window {
     id: root
     title: "Cachy Dock Preferences"
     width: 480
-    height: 720
+    height: 785
     color: "transparent"
     flags: Qt.Dialog | Qt.FramelessWindowHint
 
@@ -636,6 +636,82 @@ Window {
                             }
                             onPressed: function(mouse) { updateVal(mouse.x); }
                             onPositionChanged: function(mouse) { if (pressed) updateVal(mouse.x); }
+                        }
+                    }
+                }
+            }
+
+            // Control 5: Multi-Instance Window Switcher Mode
+            Column {
+                width: parent.width
+                spacing: 8
+
+                Text {
+                    text: "Selector de múltiples instancias de ventana"
+                    color: "#EEEEEE"
+                    font.pixelSize: 12
+                    font.bold: true
+                }
+
+                Row {
+                    width: parent.width
+                    spacing: 10
+
+                    // Option 0: Mini Windows (Cards)
+                    Rectangle {
+                        width: (parent.width - 10) / 2
+                        height: 32
+                        radius: 8
+                        color: dockController.multiInstanceMode === 0
+                            ? Qt.rgba(0.3, 0.6, 1.0, 0.65)
+                            : (miniModeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.07))
+                        border.color: dockController.multiInstanceMode === 0
+                            ? Qt.rgba(0.5, 0.8, 1.0, 0.9)
+                            : Qt.rgba(1, 1, 1, 0.18)
+                        border.width: 1
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "Mini Ventanas (Tarjetas)"
+                            color: "#FFFFFF"
+                            font.pixelSize: 11
+                            font.bold: dockController.multiInstanceMode === 0
+                        }
+
+                        MouseArea {
+                            id: miniModeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: dockController.multiInstanceMode = 0
+                        }
+                    }
+
+                    // Option 1: Window List
+                    Rectangle {
+                        width: (parent.width - 10) / 2
+                        height: 32
+                        radius: 8
+                        color: dockController.multiInstanceMode === 1
+                            ? Qt.rgba(0.3, 0.6, 1.0, 0.65)
+                            : (listModeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.07))
+                        border.color: dockController.multiInstanceMode === 1
+                            ? Qt.rgba(0.5, 0.8, 1.0, 0.9)
+                            : Qt.rgba(1, 1, 1, 0.18)
+                        border.width: 1
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "Lista de Ventanas"
+                            color: "#FFFFFF"
+                            font.pixelSize: 11
+                            font.bold: dockController.multiInstanceMode === 1
+                        }
+
+                        MouseArea {
+                            id: listModeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: dockController.multiInstanceMode = 1
                         }
                     }
                 }
