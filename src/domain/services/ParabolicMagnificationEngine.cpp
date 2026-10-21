@@ -136,12 +136,16 @@ MagnificationResult ParabolicMagnificationEngine::computeLayout(
     const double pillX = startX - m_config.pillPaddingX;
     const double pillWidth = totalScaledWidth + (m_config.pillPaddingX * 2.0);
 
+    const double cornerRadius = m_config.autoCornerRadius
+        ? (pillHeight / 2.0)
+        : std::clamp(m_config.customCornerRadius, 0.0, pillHeight / 2.0);
+
     result.pillGeometry = PillGeometry{
         .x = pillX,
         .y = pillY,
         .width = pillWidth,
         .height = pillHeight,
-        .cornerRadius = pillHeight / 2.0
+        .cornerRadius = cornerRadius
     };
 
     return result;

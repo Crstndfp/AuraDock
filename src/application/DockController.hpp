@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "domain/entities/DockItem.hpp"
+#include "domain/entities/DockSettings.hpp"
 #include "domain/interfaces/IWindowTracker.hpp"
 #include "domain/services/ParabolicMagnificationEngine.hpp"
 #include "domain/services/BouncePhysicsSolver.hpp"
@@ -34,6 +35,14 @@ class DockController : public QAbstractListModel {
 
     Q_PROPERTY(double surfaceWidth READ surfaceWidth WRITE setSurfaceWidth NOTIFY surfaceDimensionsChanged)
     Q_PROPERTY(double surfaceHeight READ surfaceHeight WRITE setSurfaceHeight NOTIFY surfaceDimensionsChanged)
+
+    // Configurable Dock Settings
+    Q_PROPERTY(double bottomMargin READ bottomMargin WRITE setBottomMargin NOTIFY settingsChanged)
+    Q_PROPERTY(double iconSize READ iconSize WRITE setIconSize NOTIFY settingsChanged)
+    Q_PROPERTY(double itemSpacing READ itemSpacing WRITE setItemSpacing NOTIFY settingsChanged)
+    Q_PROPERTY(double cornerRadius READ cornerRadius WRITE setCornerRadius NOTIFY settingsChanged)
+    Q_PROPERTY(bool autoCornerRadius READ autoCornerRadius WRITE setAutoCornerRadius NOTIFY settingsChanged)
+    Q_PROPERTY(bool isSettingsOpen READ isSettingsOpen WRITE setSettingsOpen NOTIFY isSettingsOpenChanged)
 
 public:
     enum DockRoles {
@@ -80,6 +89,25 @@ public:
     [[nodiscard]] double surfaceHeight() const noexcept { return m_surfaceHeight; }
     void setSurfaceHeight(double height);
 
+    // Settings getters & setters
+    [[nodiscard]] double bottomMargin() const noexcept { return m_settings.bottomMargin; }
+    void setBottomMargin(double val);
+
+    [[nodiscard]] double iconSize() const noexcept { return m_settings.iconSize; }
+    void setIconSize(double val);
+
+    [[nodiscard]] double itemSpacing() const noexcept { return m_settings.itemSpacing; }
+    void setItemSpacing(double val);
+
+    [[nodiscard]] double cornerRadius() const noexcept { return m_settings.cornerRadius; }
+    void setCornerRadius(double val);
+
+    [[nodiscard]] bool autoCornerRadius() const noexcept { return m_settings.autoCornerRadius; }
+    void setAutoCornerRadius(bool val);
+
+    [[nodiscard]] bool isSettingsOpen() const noexcept { return m_isSettingsOpen; }
+    void setSettingsOpen(bool open);
+
     // QML Invokables for pointer and interaction
     Q_INVOKABLE void updateCursor(double x, double y);
     Q_INVOKABLE void clearCursor();
@@ -94,10 +122,15 @@ public:
     Q_INVOKABLE void onHideAnimationFinished();
     Q_INVOKABLE void onRevealAnimationFinished();
 
-    // App Management Invokables
+    // App & Separator Management Invokables
     Q_INVOKABLE void pinApp(int index);
     Q_INVOKABLE void unpinApp(int index);
     Q_INVOKABLE void closeItem(int index);
+    Q_INVOKABLE void insertSeparator(int afterIndex);
+    Q_INVOKABLE void removeSeparator(int index);
+    Q_INVOKABLE void resetSettingsToDefaults();
+    Q_INVOKABLE void openSettingsWindow() { setSettingsOpen(true); }
+    Q_INVOKABLE void closeSettingsWindow() { setSettingsOpen(false); }
 
     // Add items programmatically
     void addItem(domain::entities::DockItem item);
@@ -112,6 +145,8 @@ signals:
     void hoveredItemIndexChanged();
     void autoHideStateChanged();
     void surfaceDimensionsChanged();
+    void settingsChanged();
+    void isSettingsOpenChanged();
     void maskUpdateRequired(const QRectF &pillRect, const std::vector<QRectF> &activeIconRects);
     void itemActivated(const QString &id);
 
@@ -121,9 +156,15 @@ private slots:
 private:
     void recomputeLayout();
     int findSeparatorIndex() const;
+    void applySettingsToEngine();
+    void loadSettings();
+    void saveSettings();
 
     std::vector<domain::entities::DockItem> m_items;
     domain::interfaces::IWindowTracker* m_windowTracker{nullptr};
+
+    domain::entities::DockSettings m_settings;
+    bool m_isSettingsOpen{false};
 
     domain::services::ParabolicMagnificationEngine m_waveEngine;
     domain::services::BouncePhysicsSolver m_bounceSolver;

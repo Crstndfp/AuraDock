@@ -42,6 +42,8 @@ struct ParabolicConfig {
     double pillPaddingY{8.0};
     double baselineOffsetFromBottom{12.0};
     double approachDistance{50.0}; // Vertical approach distance over which scale ramps up smoothly
+    bool autoCornerRadius{true};
+    double customCornerRadius{20.0};
 };
 
 class ParabolicMagnificationEngine {

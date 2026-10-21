@@ -74,8 +74,8 @@ Window {
         // macOS Tooltip Pill
         Rectangle {
             id: tooltipPill
-            visible: dockController.hoveredItemIndex >= 0 && !contextMenu.isOpen && dockController.isMagnified
             property var itemData: dockController.hoveredItemIndex >= 0 ? dockController.getItemDetails(dockController.hoveredItemIndex) : null
+            visible: dockController.hoveredItemIndex >= 0 && !contextMenu.isOpen && dockController.isMagnified && itemData && itemData.type !== 3
             property var iconTransform: (dockController.hoveredItemIndex >= 0 && dockController.hoveredItemIndex < dockRepeater.count) ? dockRepeater.itemAt(dockController.hoveredItemIndex) : null
 
             x: iconTransform ? (iconTransform.itemX + iconTransform.itemWidth / 2 - width / 2) : 0
@@ -128,9 +128,24 @@ Window {
                         contextMenu.targetItemIndex = itemIndex;
                         contextMenu.targetItemName = details.name;
                         contextMenu.targetItemIcon = details.iconName;
+                        contextMenu.targetItemType = details.type;
                         contextMenu.targetItemIsRunning = details.isRunning;
                         contextMenu.targetItemIsPinned = details.isPinned;
                         contextMenu.targetRunningWindowCount = details.runningWindowCount;
+                        contextMenu.targetX = mouse.x;
+                        contextMenu.targetY = mouse.y;
+                        contextMenu.isOpen = true;
+                    }
+                } else if (mouse.button === Qt.RightButton) {
+                    if (mouse.x >= dockController.pillX && mouse.x <= (dockController.pillX + dockController.pillWidth) &&
+                        mouse.y >= dockController.pillY && mouse.y <= (dockController.pillY + dockController.pillHeight)) {
+                        contextMenu.targetItemIndex = -1;
+                        contextMenu.targetItemName = "Cachy Dock";
+                        contextMenu.targetItemIcon = "";
+                        contextMenu.targetItemType = -1;
+                        contextMenu.targetItemIsRunning = false;
+                        contextMenu.targetItemIsPinned = true;
+                        contextMenu.targetRunningWindowCount = 0;
                         contextMenu.targetX = mouse.x;
                         contextMenu.targetY = mouse.y;
                         contextMenu.isOpen = true;
@@ -163,6 +178,18 @@ Window {
 
             onCloseAllWindows: function(idx) {
                 dockController.closeItem(idx);
+            }
+
+            onInsertSeparator: function(idx) {
+                dockController.insertSeparator(idx);
+            }
+
+            onRemoveSeparator: function(idx) {
+                dockController.removeSeparator(idx);
+            }
+
+            onOpenSettings: {
+                dockController.openSettingsWindow();
             }
         }
 
@@ -204,5 +231,10 @@ Window {
             dwellTimer.stop();
             dockController.pointerLeftSensor();
         }
+    }
+
+    // Standalone Settings Window
+    SettingsWindow {
+        id: settingsWindow
     }
 }

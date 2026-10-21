@@ -1,7 +1,9 @@
 #include "application/DockController.hpp"
 #include <QFileInfo>
 #include <QDebug>
+#include <QSettings>
 #include <algorithm>
+#include <chrono>
 
 namespace cachy_dock::application {
 
@@ -29,7 +31,8 @@ DockController::DockController(QObject *parent)
     m_bounceTimer.setInterval(8);
     connect(&m_bounceTimer, &QTimer::timeout, this, &DockController::onBounceTick);
 
-    recomputeLayout();
+    loadSettings();
+    applySettingsToEngine();
 }
 
 DockController::~DockController() = default;
@@ -159,7 +162,6 @@ int DockController::itemAt(double x, double y) const {
 
     for (size_t i = 0; i < m_lastLayout.iconTransforms.size(); ++i) {
         if (i >= m_items.size()) break;
-        if (m_items[i].type == domain::entities::DockItemType::Separator) continue;
 
         const auto &tr = m_lastLayout.iconTransforms[i];
 
@@ -219,9 +221,19 @@ void DockController::setWindowTracker(domain::interfaces::IWindowTracker* tracke
 }
 
 int DockController::findSeparatorIndex() const {
+    // If there is a DocumentStack, place unpinned running apps before the separator preceding it
     for (size_t i = 0; i < m_items.size(); ++i) {
-        if (m_items[i].type == domain::entities::DockItemType::Separator) {
+        if (m_items[i].type == domain::entities::DockItemType::DocumentStack) {
+            if (i > 0 && m_items[i - 1].type == domain::entities::DockItemType::Separator) {
+                return static_cast<int>(i - 1);
+            }
             return static_cast<int>(i);
+        }
+    }
+    // Otherwise look for the last separator
+    for (int i = static_cast<int>(m_items.size()) - 1; i >= 0; --i) {
+        if (m_items[i].type == domain::entities::DockItemType::Separator) {
+            return i;
         }
     }
     return static_cast<int>(m_items.size());
@@ -321,6 +333,9 @@ void DockController::launchItem(int index) {
     }
 
     auto &item = m_items[index];
+    if (item.type == domain::entities::DockItemType::Separator) {
+        return;
+    }
 
     if (item.isRunning && m_windowTracker) {
         // Raise and activate window directly via Wayland TasksModel
@@ -452,6 +467,132 @@ void DockController::setItems(std::vector<domain::entities::DockItem> items) {
     m_items = std::move(items);
     endResetModel();
     recomputeLayout();
+}
+
+void DockController::setBottomMargin(double val) {
+    if (std::abs(m_settings.bottomMargin - val) > 0.01) {
+        m_settings.bottomMargin = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
+void DockController::setIconSize(double val) {
+    if (std::abs(m_settings.iconSize - val) > 0.01) {
+        m_settings.iconSize = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
+void DockController::setItemSpacing(double val) {
+    if (std::abs(m_settings.itemSpacing - val) > 0.01) {
+        m_settings.itemSpacing = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
+void DockController::setCornerRadius(double val) {
+    if (std::abs(m_settings.cornerRadius - val) > 0.01) {
+        m_settings.cornerRadius = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
+void DockController::setAutoCornerRadius(bool val) {
+    if (m_settings.autoCornerRadius != val) {
+        m_settings.autoCornerRadius = val;
+        applySettingsToEngine();
+        saveSettings();
+    }
+}
+
+void DockController::setSettingsOpen(bool open) {
+    if (m_isSettingsOpen != open) {
+        m_isSettingsOpen = open;
+        emit isSettingsOpenChanged();
+    }
+}
+
+void DockController::resetSettingsToDefaults() {
+    m_settings = domain::entities::DockSettings{};
+    applySettingsToEngine();
+    saveSettings();
+}
+
+void DockController::insertSeparator(int afterIndex) {
+    int targetIndex = 0;
+    if (afterIndex < 0) {
+        targetIndex = 0;
+    } else if (afterIndex >= static_cast<int>(m_items.size())) {
+        targetIndex = static_cast<int>(m_items.size());
+    } else {
+        targetIndex = afterIndex + 1;
+    }
+
+    const auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    domain::entities::DockItem sep{
+        .id = "separator_" + std::to_string(timestamp),
+        .name = "Separator",
+        .iconName = "",
+        .type = domain::entities::DockItemType::Separator,
+        .isPinned = true,
+        .isRunning = false,
+        .isFocused = false
+    };
+
+    beginInsertRows(QModelIndex(), targetIndex, targetIndex);
+    m_items.insert(m_items.begin() + targetIndex, std::move(sep));
+    endInsertRows();
+
+    recomputeLayout();
+}
+
+void DockController::removeSeparator(int index) {
+    if (index < 0 || index >= static_cast<int>(m_items.size())) {
+        return;
+    }
+    if (m_items[index].type != domain::entities::DockItemType::Separator) {
+        return;
+    }
+
+    beginRemoveRows(QModelIndex(), index, index);
+    m_items.erase(m_items.begin() + index);
+    endRemoveRows();
+
+    recomputeLayout();
+}
+
+void DockController::applySettingsToEngine() {
+    auto config = m_waveEngine.getConfig();
+    config.baselineOffsetFromBottom = m_settings.bottomMargin;
+    config.baseIconSize = m_settings.iconSize;
+    config.itemSpacing = m_settings.itemSpacing;
+    config.autoCornerRadius = m_settings.autoCornerRadius;
+    config.customCornerRadius = m_settings.cornerRadius;
+    m_waveEngine.setConfig(config);
+    recomputeLayout();
+    emit settingsChanged();
+}
+
+void DockController::loadSettings() {
+    QSettings settings("cachy-dock", "cachy-dock");
+    m_settings.bottomMargin = settings.value("appearance/bottomMargin", 12.0).toDouble();
+    m_settings.iconSize = settings.value("appearance/iconSize", 48.0).toDouble();
+    m_settings.itemSpacing = settings.value("appearance/itemSpacing", 10.0).toDouble();
+    m_settings.cornerRadius = settings.value("appearance/cornerRadius", 20.0).toDouble();
+    m_settings.autoCornerRadius = settings.value("appearance/autoCornerRadius", true).toBool();
+}
+
+void DockController::saveSettings() {
+    QSettings settings("cachy-dock", "cachy-dock");
+    settings.setValue("appearance/bottomMargin", m_settings.bottomMargin);
+    settings.setValue("appearance/iconSize", m_settings.iconSize);
+    settings.setValue("appearance/itemSpacing", m_settings.itemSpacing);
+    settings.setValue("appearance/cornerRadius", m_settings.cornerRadius);
+    settings.setValue("appearance/autoCornerRadius", m_settings.autoCornerRadius);
 }
 
 void DockController::recomputeLayout() {

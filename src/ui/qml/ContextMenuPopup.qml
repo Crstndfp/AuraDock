@@ -10,6 +10,7 @@ Item {
     property bool targetItemIsRunning: false
     property bool targetItemIsPinned: true
     property int targetRunningWindowCount: 0
+    property int targetItemType: 0
 
     property real targetX: 0
     property real targetY: 0
@@ -19,6 +20,9 @@ Item {
     signal launchOnDiscreteGpu(int index)
     signal closeAllWindows(int index)
     signal forceQuit(int index)
+    signal insertSeparator(int index)
+    signal removeSeparator(int index)
+    signal openSettings()
 
     visible: isOpen
     opacity: isOpen ? 1.0 : 0.0
@@ -87,8 +91,9 @@ Item {
                 color: Qt.rgba(1, 1, 1, 0.12)
             }
 
-            // Option 1: Open New Window / Instance
+            // Option 1: Open New Window / Instance (non-separator only)
             Rectangle {
+                visible: root.targetItemType !== 3
                 width: parent.width
                 height: 28
                 radius: 6
@@ -113,8 +118,9 @@ Item {
                 }
             }
 
-            // Option 2: Keep in Dock
+            // Option 2: Keep in Dock (non-separator only)
             Rectangle {
+                visible: root.targetItemType !== 3
                 width: parent.width
                 height: 28
                 radius: 6
@@ -139,8 +145,9 @@ Item {
                 }
             }
 
-            // Option 3: Launch with Discrete GPU
+            // Option 3: Launch with Discrete GPU (non-separator only)
             Rectangle {
+                visible: root.targetItemType !== 3
                 width: parent.width
                 height: 28
                 radius: 6
@@ -165,17 +172,9 @@ Item {
                 }
             }
 
-            // Section divider
+            // Option 4: Close All Windows (non-separator only)
             Rectangle {
-                visible: root.targetItemIsRunning
-                width: parent.width
-                height: 1
-                color: Qt.rgba(1, 1, 1, 0.12)
-            }
-
-            // Option 4: Close All Windows
-            Rectangle {
-                visible: root.targetItemIsRunning
+                visible: root.targetItemType !== 3 && root.targetItemIsRunning
                 width: parent.width
                 height: 28
                 radius: 6
@@ -195,6 +194,92 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         root.closeAllWindows(root.targetItemIndex);
+                        root.isOpen = false;
+                    }
+                }
+            }
+
+            // Option 5: Remove this separator (if separator)
+            Rectangle {
+                visible: root.targetItemType === 3
+                width: parent.width
+                height: 28
+                radius: 6
+                color: optRemoveSepMouse.containsMouse ? Qt.rgba(0.9, 0.25, 0.25, 0.65) : "transparent"
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Eliminar este separador"
+                    color: "#FFFFFF"
+                    font.pixelSize: 12
+                }
+                MouseArea {
+                    id: optRemoveSepMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        root.removeSeparator(root.targetItemIndex);
+                        root.isOpen = false;
+                    }
+                }
+            }
+
+            // Section divider
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Qt.rgba(1, 1, 1, 0.12)
+            }
+
+            // Option 6: Insert separator to the right
+            Rectangle {
+                width: parent.width
+                height: 28
+                radius: 6
+                color: optInsertSepMouse.containsMouse ? Qt.rgba(0.2, 0.5, 0.9, 0.65) : "transparent"
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Insertar separador a la derecha"
+                    color: Qt.rgba(0.9, 0.9, 0.95, 0.9)
+                    font.pixelSize: 12
+                }
+                MouseArea {
+                    id: optInsertSepMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        root.insertSeparator(root.targetItemIndex);
+                        root.isOpen = false;
+                    }
+                }
+            }
+
+            // Option 7: Open Dock Settings
+            Rectangle {
+                width: parent.width
+                height: 28
+                radius: 6
+                color: optSettingsMouse.containsMouse ? Qt.rgba(0.2, 0.5, 0.9, 0.65) : "transparent"
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Configuración del Dock..."
+                    color: Qt.rgba(0.9, 0.9, 0.95, 0.9)
+                    font.pixelSize: 12
+                }
+                MouseArea {
+                    id: optSettingsMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        root.openSettings();
                         root.isOpen = false;
                     }
                 }

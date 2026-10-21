@@ -7,6 +7,7 @@ add_executable(cachy_dock_tests
     test_autohide_statemachine.cpp
     test_xdg_desktop_repository.cpp
     test_dock_window_tracking.cpp
+    test_dock_settings.cpp
 )
 
 target_link_libraries(cachy_dock_tests PRIVATE
