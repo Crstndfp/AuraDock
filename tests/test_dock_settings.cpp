@@ -233,3 +233,32 @@ TEST_F(DockSettingsTest, SaveSettingsAndLoadSettings_PersistsAllAppearanceValues
     EXPECT_EQ(freshController.data(freshController.index(2, 0), DockController::NameRole).toString().toStdString(), "Documents");
     EXPECT_EQ(freshController.data(freshController.index(2, 0), DockController::TypeRole).toInt(), static_cast<int>(DockItemType::DocumentStack));
 }
+
+TEST_F(DockSettingsTest, MaskUpdateRequired_EmitsDynamicCornerRadiusMatchingSettings) {
+    double capturedRadius = -1.0;
+    QRectF capturedPillRect;
+
+    QObject::connect(&controller, &DockController::maskUpdateRequired,
+                     [&capturedRadius, &capturedPillRect](const QRectF &pillRect, double radius, const std::vector<QRectF> &activeIconRects) {
+        Q_UNUSED(activeIconRects);
+        capturedPillRect = pillRect;
+        capturedRadius = radius;
+    });
+
+    // Disable autoCornerRadius and set custom corner radius to 8.0px
+    controller.setAutoCornerRadius(false);
+    controller.setCornerRadius(8.0);
+
+    EXPECT_DOUBLE_EQ(capturedRadius, 8.0);
+    EXPECT_DOUBLE_EQ(controller.pillRadius(), 8.0);
+
+    // Change to 0.0px (sharp square corners)
+    controller.setCornerRadius(0.0);
+    EXPECT_DOUBLE_EQ(capturedRadius, 0.0);
+    EXPECT_DOUBLE_EQ(controller.pillRadius(), 0.0);
+
+    // Re-enable autoCornerRadius: corner radius must restore to pillHeight / 2.0 (32.0)
+    controller.setAutoCornerRadius(true);
+    EXPECT_DOUBLE_EQ(capturedRadius, controller.pillHeight() / 2.0);
+    EXPECT_DOUBLE_EQ(controller.pillRadius(), controller.pillHeight() / 2.0);
+}

@@ -872,7 +872,7 @@ void DockController::recomputeLayout() {
         activeIconRects.emplace_back(tr.x, tr.y, tr.width, tr.height);
     }
 
-    emit maskUpdateRequired(pillRect, activeIconRects);
+    emit maskUpdateRequired(pillRect, m_lastLayout.pillGeometry.cornerRadius, activeIconRects);
 }
 
 } // namespace cachy_dock::application

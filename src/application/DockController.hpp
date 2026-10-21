@@ -176,7 +176,7 @@ signals:
     void settingsChanged();
     void isSettingsOpenChanged();
     void windowsUpdated();
-    void maskUpdateRequired(const QRectF &pillRect, const std::vector<QRectF> &activeIconRects);
+    void maskUpdateRequired(const QRectF &pillRect, double cornerRadius, const std::vector<QRectF> &activeIconRects);
     void itemActivated(const QString &id);
 
 private slots:

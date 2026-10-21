@@ -11,7 +11,7 @@ WaylandSurfaceMaskSynchronizer::WaylandSurfaceMaskSynchronizer(QQuickWindow *win
 
 WaylandSurfaceMaskSynchronizer::~WaylandSurfaceMaskSynchronizer() = default;
 
-void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(const QRectF &pillRect, const std::vector<QRectF> &activeIconRects) {
+void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(const QRectF &pillRect, double cornerRadius, const std::vector<QRectF> &activeIconRects) {
     Q_UNUSED(activeIconRects);
     if (!m_window) {
         return;
@@ -22,9 +22,9 @@ void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(const QRectF &pillRect, 
         return;
     }
 
-    // 1. Build the pill region for KWin blur-behind
+    // 1. Build the pill region for KWin blur-behind matching the exact dynamic cornerRadius
     QPainterPath pillPath;
-    const double radius = pillRect.height() / 2.0;
+    const double radius = std::clamp(cornerRadius, 0.0, pillRect.height() / 2.0);
     pillPath.addRoundedRect(pillRect, radius, radius);
     const QRegion pillRegion(pillPath.toFillPolygon().toPolygon());
 

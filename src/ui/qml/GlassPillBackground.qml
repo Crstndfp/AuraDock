@@ -64,7 +64,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             width: parent.width * 0.88
             height: parent.height * 0.45
-            radius: height / 2
+            radius: Math.min(height / 2, root.pillRadius)
             opacity: 0.06
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "#FFFFFF" }
