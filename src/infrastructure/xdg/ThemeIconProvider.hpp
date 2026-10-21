@@ -9,6 +9,8 @@
 #include <QThread>
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QStandardPaths>
+#include <QSettings>
 #include <mutex>
 #include <unordered_map>
 
@@ -66,6 +68,26 @@ private:
             icon = QIcon(id);
         }
 
+        // If id is a reverse-DNS appId (e.g. com.microsoft.VSCode), resolve via its .desktop file
+        if (icon.isNull()) {
+            static const auto appDirs = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
+            for (const auto &dir : appDirs) {
+                QString candidate = dir + QLatin1Char('/') + id;
+                if (!candidate.endsWith(QLatin1String(".desktop"), Qt::CaseInsensitive)) {
+                    candidate += QLatin1String(".desktop");
+                }
+                if (QFileInfo::exists(candidate)) {
+                    QSettings desktopFile(candidate, QSettings::IniFormat);
+                    desktopFile.beginGroup("Desktop Entry");
+                    const QString desktopIcon = desktopFile.value("Icon").toString();
+                    if (!desktopIcon.isEmpty() && desktopIcon != id) {
+                        return loadIcon(desktopIcon, width, height);
+                    }
+                    break;
+                }
+            }
+        }
+
         if (icon.isNull()) {
             static const QStringList fallbackDirs = {
                 QStringLiteral("/usr/share/pixmaps"),
@@ -80,13 +102,24 @@ private:
                 QStringLiteral(".svg"),
                 QStringLiteral(".xpm")
             };
-            for (const auto &dir : fallbackDirs) {
-                for (const auto &ext : extensions) {
-                    const QString candidate = dir + QLatin1Char('/') + id + ext;
-                    if (QFileInfo::exists(candidate)) {
-                        icon = QIcon(candidate);
-                        if (!icon.isNull()) break;
+
+            // Try exact id, lowercase, and reverse-DNS suffix (e.g. com.microsoft.VSCode -> vscode)
+            QStringList namesToTry = { id, id.toLower() };
+            const QString suffix = id.section(QLatin1Char('.'), -1);
+            if (!suffix.isEmpty() && suffix != id) {
+                namesToTry << suffix << suffix.toLower();
+            }
+
+            for (const auto &name : namesToTry) {
+                for (const auto &dir : fallbackDirs) {
+                    for (const auto &ext : extensions) {
+                        const QString candidate = dir + QLatin1Char('/') + name + ext;
+                        if (QFileInfo::exists(candidate)) {
+                            icon = QIcon(candidate);
+                            if (!icon.isNull()) break;
+                        }
                     }
+                    if (!icon.isNull()) break;
                 }
                 if (!icon.isNull()) break;
             }

@@ -1,4 +1,5 @@
 #include "application/DockController.hpp"
+#include "infrastructure/xdg/XdgDesktopRepository.hpp"
 #include <QFileInfo>
 #include <QUrl>
 #include <QDebug>
@@ -325,10 +326,11 @@ void DockController::syncOpenWindows() {
         }
 
         if (!alreadyInDock && !win.appId.empty()) {
+            auto resolved = infrastructure::xdg::XdgDesktopRepository::resolveDesktopFile(win.appId);
             domain::entities::DockItem newItem{
-                .id = win.appId,
-                .name = win.title.empty() ? win.appId : win.title,
-                .iconName = win.iconName.empty() ? win.appId : win.iconName,
+                .id = resolved.has_value() ? resolved->id : win.appId,
+                .name = resolved.has_value() ? resolved->name : (win.title.empty() ? win.appId : win.title),
+                .iconName = resolved.has_value() ? resolved->iconName : (win.iconName.empty() ? win.appId : win.iconName),
                 .type = domain::entities::DockItemType::AppLauncher,
                 .isPinned = false,
                 .isRunning = true,
@@ -432,9 +434,17 @@ void DockController::pinApp(int index) {
     if (index < 0 || index >= static_cast<int>(m_items.size())) {
         return;
     }
+    if (!m_items[index].id.empty() && !QString::fromStdString(m_items[index].id).endsWith(QLatin1String(".desktop"), Qt::CaseInsensitive)) {
+        auto resolved = infrastructure::xdg::XdgDesktopRepository::resolveDesktopFile(m_items[index].id);
+        if (resolved.has_value()) {
+            m_items[index].id = resolved->id;
+            m_items[index].name = resolved->name;
+            m_items[index].iconName = resolved->iconName;
+        }
+    }
     m_items[index].isPinned = true;
     const auto idx = createIndex(index, 0);
-    emit dataChanged(idx, idx, {IsPinnedRole});
+    emit dataChanged(idx, idx, {IsPinnedRole, NameRole, IconNameRole});
 }
 
 void DockController::unpinApp(int index) {

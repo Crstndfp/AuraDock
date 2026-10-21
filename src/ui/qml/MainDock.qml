@@ -165,7 +165,8 @@ Window {
             }
 
             onToggleKeepInDock: function(idx) {
-                if (dockController.data(dockController.index(idx, 0), DockController.IsPinnedRole).toBool()) {
+                var details = dockController.getItemDetails(idx);
+                if (details.isPinned) {
                     dockController.unpinApp(idx);
                 } else {
                     dockController.pinApp(idx);

@@ -88,7 +88,7 @@ TEST(DockWindowTrackingTest, UnpinnedRunningAppIsDynamicallyAddedAndRemovedOnClo
 
     // The unpinned app should be inserted right before the separator (index 1)
     auto spotifyIdx = controller.index(1, 0);
-    EXPECT_EQ(controller.data(spotifyIdx, DockController::NameRole).toString().toStdString(), "Spotify - Music for everyone");
+    EXPECT_EQ(controller.data(spotifyIdx, DockController::NameRole).toString().toStdString(), "Spotify");
     EXPECT_FALSE(controller.data(spotifyIdx, DockController::IsPinnedRole).toBool());
     EXPECT_TRUE(controller.data(spotifyIdx, DockController::IsRunningRole).toBool());
     EXPECT_TRUE(controller.data(spotifyIdx, DockController::IsFocusedRole).toBool());
@@ -186,4 +186,47 @@ TEST(DockWindowTrackingTest, ReverseDnsMatchingWorksForFirefox) {
 
     EXPECT_TRUE(controller.data(ffIdx, DockController::IsRunningRole).toBool());
     EXPECT_TRUE(controller.data(ffIdx, DockController::IsFocusedRole).toBool());
+}
+
+TEST(DockWindowTrackingTest, UnpinnedReverseDnsAppResolvesDesktopIconAndCanBePinned) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    std::vector<DockItem> items = {
+        DockItem{.id = "separator", .name = "Separator", .iconName = "", .type = DockItemType::Separator, .isPinned = true}
+    };
+    controller.setItems(items);
+    controller.setWindowTracker(&tracker);
+
+    ASSERT_EQ(controller.rowCount(), 1);
+
+    // Simulate VS Code window appearing
+    std::vector<WindowInstance> windows = {
+        WindowInstance{
+            .id = 20,
+            .appId = "com.microsoft.VSCode",
+            .title = "Visual Studio Code",
+            .iconName = "com.microsoft.VSCode",
+            .isMaximized = false,
+            .isMinimized = false,
+            .isFullscreen = false,
+            .isActive = true,
+            .windowCount = 1,
+            .screenName = ""
+        }
+    };
+    tracker.simulateWindowChange(windows);
+
+    // Row count should be 2 (VS Code inserted before separator)
+    ASSERT_EQ(controller.rowCount(), 2);
+    auto codeIdx = controller.index(0, 0);
+
+    // Should resolve desktop icon ("vscode") from com.microsoft.VSCode.desktop
+    EXPECT_EQ(controller.data(codeIdx, DockController::IconNameRole).toString().toStdString(), "vscode");
+    EXPECT_FALSE(controller.data(codeIdx, DockController::IsPinnedRole).toBool());
+
+    // Pin app to dock
+    controller.pinApp(0);
+    EXPECT_TRUE(controller.data(codeIdx, DockController::IsPinnedRole).toBool());
+    EXPECT_EQ(controller.data(codeIdx, DockController::IconNameRole).toString().toStdString(), "vscode");
 }
