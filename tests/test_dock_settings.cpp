@@ -246,8 +246,10 @@ TEST_F(DockSettingsTest, MaskUpdateRequired_EmitsDynamicCornerRadiusMatchingSett
     QRectF capturedPillRect;
 
     QObject::connect(&controller, &DockController::maskUpdateRequired,
-                     [&capturedRadius, &capturedPillRect](const QRectF &pillRect, double radius, const std::vector<QRectF> &activeIconRects) {
+                     [&capturedRadius, &capturedPillRect](const QRectF &pillRect, double radius, double dockOpacity, bool blurEnabled, const std::vector<QRectF> &activeIconRects) {
         Q_UNUSED(activeIconRects);
+        Q_UNUSED(dockOpacity);
+        Q_UNUSED(blurEnabled);
         capturedPillRect = pillRect;
         capturedRadius = radius;
     });
@@ -354,4 +356,40 @@ TEST_F(DockSettingsTest, ChangingDockOpacityAndTransparencyUpdatesValuesAndPersi
     controller.resetSettingsToDefaults();
     EXPECT_NEAR(controller.dockOpacity(), 0.42, 0.001);
     EXPECT_NEAR(controller.dockTransparency(), 0.58, 0.001);
+}
+
+TEST_F(DockSettingsTest, BlurEnabled_PropagatesToMaskAndPersists) {
+    bool capturedBlur = false;
+    double capturedOpacity = -1.0;
+
+    QObject::connect(&controller, &DockController::maskUpdateRequired,
+                     [&capturedBlur, &capturedOpacity](const QRectF &pillRect, double radius, double dockOpacity, bool blurEnabled, const std::vector<QRectF> &activeIconRects) {
+        Q_UNUSED(pillRect);
+        Q_UNUSED(radius);
+        Q_UNUSED(activeIconRects);
+        capturedBlur = blurEnabled;
+        capturedOpacity = dockOpacity;
+    });
+
+    // Default is blur enabled
+    EXPECT_TRUE(controller.blurEnabled());
+
+    // Toggle blur off
+    controller.setBlurEnabled(false);
+    EXPECT_FALSE(controller.blurEnabled());
+    EXPECT_FALSE(capturedBlur);
+
+    // Persist to test configuration
+    DockController freshController;
+    freshController.loadSettings();
+    EXPECT_FALSE(freshController.blurEnabled());
+
+    // Toggle blur back on
+    controller.setBlurEnabled(true);
+    EXPECT_TRUE(controller.blurEnabled());
+    EXPECT_TRUE(capturedBlur);
+
+    // When opacity is set to 0.0 (100% transparent), mask receives dockOpacity == 0.0
+    controller.setDockOpacity(0.0);
+    EXPECT_DOUBLE_EQ(capturedOpacity, 0.0);
 }

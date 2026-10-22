@@ -19,6 +19,7 @@ struct DockSettings {
     bool autoCornerRadius{true};    // If true, cornerRadius = pillHeight / 2.0 (pill shape)
     int multiInstanceMode{0};       // 0 = MiniWindows, 1 = WindowList
     double dockOpacity{0.42};       // Dock glass background opacity (0.0 = fully transparent glass, 1.0 = solid)
+    bool blurEnabled{true};         // Enable hardware real-time blur behind the dock
 };
 
 } // namespace cachy_dock::domain::entities

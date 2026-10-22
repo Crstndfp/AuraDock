@@ -50,6 +50,7 @@ class DockController : public QAbstractListModel {
     Q_PROPERTY(int multiInstanceMode READ multiInstanceMode WRITE setMultiInstanceMode NOTIFY settingsChanged)
     Q_PROPERTY(double dockOpacity READ dockOpacity WRITE setDockOpacity NOTIFY settingsChanged)
     Q_PROPERTY(double dockTransparency READ dockTransparency WRITE setDockTransparency NOTIFY settingsChanged)
+    Q_PROPERTY(bool blurEnabled READ blurEnabled WRITE setBlurEnabled NOTIFY settingsChanged)
     Q_PROPERTY(bool isSettingsOpen READ isSettingsOpen WRITE setSettingsOpen NOTIFY isSettingsOpenChanged)
 
 public:
@@ -134,6 +135,9 @@ public:
     [[nodiscard]] double dockTransparency() const noexcept { return 1.0 - m_settings.dockOpacity; }
     void setDockTransparency(double val);
 
+    [[nodiscard]] bool blurEnabled() const noexcept { return m_settings.blurEnabled; }
+    void setBlurEnabled(bool val);
+
     [[nodiscard]] bool isSettingsOpen() const noexcept { return m_isSettingsOpen; }
     void setSettingsOpen(bool open);
 
@@ -191,7 +195,7 @@ signals:
     void settingsChanged();
     void isSettingsOpenChanged();
     void windowsUpdated();
-    void maskUpdateRequired(const QRectF &pillRect, double cornerRadius, const std::vector<QRectF> &activeIconRects);
+    void maskUpdateRequired(const QRectF &pillRect, double cornerRadius, double dockOpacity, bool blurEnabled, const std::vector<QRectF> &activeIconRects);
     void itemActivated(const QString &id);
 
 private slots:

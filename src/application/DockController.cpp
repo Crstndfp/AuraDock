@@ -739,6 +739,7 @@ void DockController::setDockOpacity(double val) {
     const double clamped = std::clamp(val, 0.0, 1.0);
     if (std::abs(m_settings.dockOpacity - clamped) > 0.001) {
         m_settings.dockOpacity = clamped;
+        recomputeLayout();
         saveSettings();
         emit settingsChanged();
     }
@@ -746,6 +747,15 @@ void DockController::setDockOpacity(double val) {
 
 void DockController::setDockTransparency(double val) {
     setDockOpacity(1.0 - val);
+}
+
+void DockController::setBlurEnabled(bool val) {
+    if (m_settings.blurEnabled != val) {
+        m_settings.blurEnabled = val;
+        recomputeLayout();
+        saveSettings();
+        emit settingsChanged();
+    }
 }
 
 void DockController::setSettingsOpen(bool open) {
@@ -860,6 +870,7 @@ void DockController::loadSettings() {
     m_settings.autoCornerRadius = settings.value("appearance/autoCornerRadius", true).toBool();
     m_settings.multiInstanceMode = std::clamp(settings.value("appearance/multiInstanceMode", 0).toInt(), 0, 1);
     m_settings.dockOpacity = std::clamp(settings.value("appearance/dockOpacity", 0.42).toDouble(), 0.0, 1.0);
+    m_settings.blurEnabled = settings.value("appearance/blurEnabled", true).toBool();
 
     const int itemCount = settings.beginReadArray(QStringLiteral("items"));
     if (itemCount > 0) {
@@ -919,6 +930,7 @@ void DockController::saveSettings() {
     settings.setValue("appearance/multiInstanceMode", m_settings.multiInstanceMode);
     settings.setValue("appearance/dockOpacity", m_settings.dockOpacity);
     settings.setValue("appearance/dockTransparency", 1.0 - m_settings.dockOpacity);
+    settings.setValue("appearance/blurEnabled", m_settings.blurEnabled);
 
     settings.remove(QStringLiteral("items"));
     settings.beginWriteArray(QStringLiteral("items"));
@@ -974,7 +986,7 @@ void DockController::recomputeLayout() {
         activeIconRects.emplace_back(tr.x, tr.y, tr.width, tr.height);
     }
 
-    emit maskUpdateRequired(pillRect, m_lastLayout.pillGeometry.cornerRadius, activeIconRects);
+    emit maskUpdateRequired(pillRect, m_lastLayout.pillGeometry.cornerRadius, m_settings.dockOpacity, m_settings.blurEnabled, activeIconRects);
 }
 
 } // namespace cachy_dock::application

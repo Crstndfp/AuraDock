@@ -711,6 +711,46 @@ Window {
                 }
             }
 
+            // Control 4C: Background Blur Toggle
+            Item {
+                width: parent.width
+                height: 22
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Desenfoque de fondo (Efecto Blur)"
+                    color: "#EEEEEE"
+                    font.pixelSize: 12
+                    font.bold: true
+                }
+
+                // Toggle switch
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 38
+                    height: 20
+                    radius: 10
+                    color: dockController.blurEnabled ? Qt.rgba(0.3, 0.6, 1.0, 0.85) : Qt.rgba(1, 1, 1, 0.2)
+
+                    Rectangle {
+                        width: 16
+                        height: 16
+                        radius: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: dockController.blurEnabled ? parent.width - width - 2 : 2
+                        color: "#FFFFFF"
+                        Behavior on x { NumberAnimation { duration: 120 } }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: dockController.blurEnabled = !dockController.blurEnabled
+                    }
+                }
+            }
+
             // Control 5: Multi-Instance Window Switcher Mode
             Column {
                 width: parent.width

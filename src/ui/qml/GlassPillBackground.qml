@@ -24,7 +24,7 @@ Item {
         NumberAnimation { duration: 50; easing.type: Easing.OutQuad }
     }
 
-    // Outer drop shadow & ambient glow
+    // Outer drop shadow & ambient glow (fades out with opacity)
     Rectangle {
         anchors.fill: parent
         anchors.margins: -1
@@ -32,7 +32,8 @@ Item {
         color: "transparent"
         border.color: Qt.rgba(0, 0, 0, 0.45)
         border.width: 1
-        opacity: 0.8
+        opacity: Math.max(0.0, Math.min(0.8, root.dockOpacity * 0.8))
+        visible: opacity > 0.01
     }
 
     // Frosted glass base container (KWin handles the real-time background blur behind this)
@@ -40,26 +41,27 @@ Item {
         id: glassBase
         anchors.fill: parent
         radius: root.pillRadius
-        // Deep translucent tinted glass with dynamic opacity level
-        color: Qt.rgba(0.08, 0.10, 0.14, root.dockOpacity)
+        // Deep translucent tinted glass with dynamic opacity level (pure transparent when 0.0)
+        color: root.dockOpacity > 0.001 ? Qt.rgba(0.08, 0.10, 0.14, root.dockOpacity) : "transparent"
         clip: true
 
         Behavior on color {
             ColorAnimation { duration: 100 }
         }
 
-        // Inner specular top-light gradient (simulates refraction on beveled glass rim)
+        // Inner specular top-light gradient (fades out smoothly with opacity)
         Rectangle {
             anchors.fill: parent
             radius: root.pillRadius
             color: "transparent"
             border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.28)
+            border.color: Qt.rgba(1, 1, 1, 0.28 * root.dockOpacity)
+            visible: root.dockOpacity > 0.01
 
             gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.35) }
-                GradientStop { position: 0.4; color: Qt.rgba(1, 1, 1, 0.12) }
-                GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.04) }
+                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.35 * root.dockOpacity) }
+                GradientStop { position: 0.4; color: Qt.rgba(1, 1, 1, 0.12 * root.dockOpacity) }
+                GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.04 * root.dockOpacity) }
             }
         }
 
@@ -70,7 +72,8 @@ Item {
             width: parent.width * 0.88
             height: parent.height * 0.45
             radius: Math.min(height / 2, root.pillRadius)
-            opacity: 0.06
+            opacity: 0.06 * root.dockOpacity
+            visible: root.dockOpacity > 0.02
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "#FFFFFF" }
                 GradientStop { position: 1.0; color: "transparent" }

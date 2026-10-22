@@ -11,13 +11,16 @@ WaylandSurfaceMaskSynchronizer::WaylandSurfaceMaskSynchronizer(QQuickWindow *win
 
 WaylandSurfaceMaskSynchronizer::~WaylandSurfaceMaskSynchronizer() = default;
 
-void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(const QRectF &pillRect, double cornerRadius, const std::vector<QRectF> &activeIconRects) {
+void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(const QRectF &pillRect, double cornerRadius, double dockOpacity, bool blurEnabled, const std::vector<QRectF> &activeIconRects) {
     Q_UNUSED(activeIconRects);
     if (!m_window) {
         return;
     }
 
-    if (pillRect.width() <= 0.0 || pillRect.height() <= 0.0) {
+    // Always disable artificial background contrast to eliminate golden/amber hue distortion
+    KWindowEffects::enableBackgroundContrast(m_window, false);
+
+    if (pillRect.width() <= 0.0 || pillRect.height() <= 0.0 || !blurEnabled || dockOpacity <= 0.01) {
         KWindowEffects::enableBlurBehind(m_window, false);
         return;
     }
@@ -28,9 +31,8 @@ void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(const QRectF &pillRect, 
     pillPath.addRoundedRect(pillRect, radius, radius);
     const QRegion pillRegion(pillPath.toFillPolygon().toPolygon());
 
-    // Enable hardware dual-kawase blur and macOS-like saturation boost strictly behind the pill
+    // Enable clean hardware dual-kawase blur strictly behind the pill
     KWindowEffects::enableBlurBehind(m_window, true, pillRegion);
-    KWindowEffects::enableBackgroundContrast(m_window, true, 1.25, 1.1, 1.35, pillRegion);
 }
 
 void WaylandSurfaceMaskSynchronizer::applySensorStripMask(double surfaceWidth, double surfaceHeight, double sensorHeight) {
