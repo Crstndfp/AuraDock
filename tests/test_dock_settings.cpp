@@ -318,3 +318,40 @@ TEST_F(DockSettingsTest, MovePinnedItem_EnforcesBoundaryLimitsAndRejectsSeparato
     EXPECT_EQ(controller.data(controller.index(0, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
     EXPECT_EQ(controller.data(controller.index(1, 0), DockController::NameRole).toString().toStdString(), "Firefox");
 }
+
+TEST_F(DockSettingsTest, ChangingDockOpacityAndTransparencyUpdatesValuesAndPersists) {
+    // Default opacity is 0.42 (macOS frosted glass), transparency is 0.58
+    EXPECT_NEAR(controller.dockOpacity(), 0.42, 0.001);
+    EXPECT_NEAR(controller.dockTransparency(), 0.58, 0.001);
+
+    // Setting opacity updates transparency
+    controller.setDockOpacity(0.80);
+    EXPECT_NEAR(controller.dockOpacity(), 0.80, 0.001);
+    EXPECT_NEAR(controller.dockTransparency(), 0.20, 0.001);
+
+    // Setting transparency updates opacity
+    controller.setDockTransparency(0.75);
+    EXPECT_NEAR(controller.dockTransparency(), 0.75, 0.001);
+    EXPECT_NEAR(controller.dockOpacity(), 0.25, 0.001);
+
+    // Clamping limits
+    controller.setDockOpacity(1.5);
+    EXPECT_DOUBLE_EQ(controller.dockOpacity(), 1.0);
+    EXPECT_DOUBLE_EQ(controller.dockTransparency(), 0.0);
+
+    controller.setDockOpacity(-0.5);
+    EXPECT_DOUBLE_EQ(controller.dockOpacity(), 0.0);
+    EXPECT_DOUBLE_EQ(controller.dockTransparency(), 1.0);
+
+    // Persist to test configuration
+    controller.setDockOpacity(0.35);
+    DockController freshController;
+    freshController.loadSettings();
+    EXPECT_NEAR(freshController.dockOpacity(), 0.35, 0.001);
+    EXPECT_NEAR(freshController.dockTransparency(), 0.65, 0.001);
+
+    // Reset to defaults
+    controller.resetSettingsToDefaults();
+    EXPECT_NEAR(controller.dockOpacity(), 0.42, 0.001);
+    EXPECT_NEAR(controller.dockTransparency(), 0.58, 0.001);
+}

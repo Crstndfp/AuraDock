@@ -48,6 +48,8 @@ class DockController : public QAbstractListModel {
     Q_PROPERTY(double cornerRadius READ cornerRadius WRITE setCornerRadius NOTIFY settingsChanged)
     Q_PROPERTY(bool autoCornerRadius READ autoCornerRadius WRITE setAutoCornerRadius NOTIFY settingsChanged)
     Q_PROPERTY(int multiInstanceMode READ multiInstanceMode WRITE setMultiInstanceMode NOTIFY settingsChanged)
+    Q_PROPERTY(double dockOpacity READ dockOpacity WRITE setDockOpacity NOTIFY settingsChanged)
+    Q_PROPERTY(double dockTransparency READ dockTransparency WRITE setDockTransparency NOTIFY settingsChanged)
     Q_PROPERTY(bool isSettingsOpen READ isSettingsOpen WRITE setSettingsOpen NOTIFY isSettingsOpenChanged)
 
 public:
@@ -125,6 +127,12 @@ public:
 
     [[nodiscard]] int multiInstanceMode() const noexcept { return m_settings.multiInstanceMode; }
     void setMultiInstanceMode(int val);
+
+    [[nodiscard]] double dockOpacity() const noexcept { return m_settings.dockOpacity; }
+    void setDockOpacity(double val);
+
+    [[nodiscard]] double dockTransparency() const noexcept { return 1.0 - m_settings.dockOpacity; }
+    void setDockTransparency(double val);
 
     [[nodiscard]] bool isSettingsOpen() const noexcept { return m_isSettingsOpen; }
     void setSettingsOpen(bool open);

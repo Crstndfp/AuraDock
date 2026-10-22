@@ -9,6 +9,7 @@ Item {
     property real pillWidth: 0
     property real pillHeight: 0
     property real pillRadius: pillHeight / 2
+    property real dockOpacity: 0.42
 
     x: pillX
     y: pillY
@@ -39,9 +40,13 @@ Item {
         id: glassBase
         anchors.fill: parent
         radius: root.pillRadius
-        // Deep translucent tinted glass with slight blur tint
-        color: Qt.rgba(0.08, 0.10, 0.14, 0.42)
+        // Deep translucent tinted glass with dynamic opacity level
+        color: Qt.rgba(0.08, 0.10, 0.14, root.dockOpacity)
         clip: true
+
+        Behavior on color {
+            ColorAnimation { duration: 100 }
+        }
 
         // Inner specular top-light gradient (simulates refraction on beveled glass rim)
         Rectangle {

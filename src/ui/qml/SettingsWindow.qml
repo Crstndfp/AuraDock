@@ -641,6 +641,76 @@ Window {
                 }
             }
 
+            // Control 4B: Dock Transparency Slider
+            Column {
+                width: parent.width
+                spacing: 6
+
+                Item {
+                    width: parent.width
+                    height: 18
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Transparencia del fondo"
+                        color: "#EEEEEE"
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+
+                    Text {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Math.round(dockController.dockTransparency * 100) + "%"
+                        color: Qt.rgba(0.3, 0.6, 1.0, 1.0)
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+                }
+
+                Item {
+                    width: parent.width
+                    height: 22
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width
+                        height: 6
+                        radius: 3
+                        color: Qt.rgba(1, 1, 1, 0.15)
+
+                        Rectangle {
+                            height: parent.height
+                            radius: 3
+                            color: Qt.rgba(0.3, 0.6, 1.0, 0.85)
+                            width: Math.max(0, Math.min(parent.width, dockController.dockTransparency * parent.width))
+                        }
+                    }
+
+                    Rectangle {
+                        width: 16
+                        height: 16
+                        radius: 8
+                        color: "#FFFFFF"
+                        x: Math.max(0, Math.min(parent.width - width, dockController.dockTransparency * (parent.width - width)))
+                        anchors.verticalCenter: parent.verticalCenter
+                        border.color: Qt.rgba(0, 0, 0, 0.3)
+                        border.width: 1
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        function updateVal(mouseX) {
+                            var ratio = Math.max(0, Math.min(1, mouseX / parent.width));
+                            dockController.dockTransparency = Math.round(ratio * 100) / 100.0;
+                        }
+                        onPressed: function(mouse) { updateVal(mouse.x); }
+                        onPositionChanged: function(mouse) { if (pressed) updateVal(mouse.x); }
+                    }
+                }
+            }
+
             // Control 5: Multi-Instance Window Switcher Mode
             Column {
                 width: parent.width

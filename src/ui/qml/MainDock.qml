@@ -63,6 +63,7 @@ Window {
             pillWidth: dockController.pillWidth
             pillHeight: dockController.pillHeight
             pillRadius: dockController.pillRadius
+            dockOpacity: dockController.dockOpacity
         }
 
         // Icon Items Repeater

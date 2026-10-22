@@ -18,6 +18,7 @@ struct DockSettings {
     double cornerRadius{20.0};      // Custom pill corner curve radius
     bool autoCornerRadius{true};    // If true, cornerRadius = pillHeight / 2.0 (pill shape)
     int multiInstanceMode{0};       // 0 = MiniWindows, 1 = WindowList
+    double dockOpacity{0.42};       // Dock glass background opacity (0.0 = fully transparent glass, 1.0 = solid)
 };
 
 } // namespace cachy_dock::domain::entities

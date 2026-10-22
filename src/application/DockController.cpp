@@ -735,6 +735,19 @@ void DockController::setMultiInstanceMode(int val) {
     }
 }
 
+void DockController::setDockOpacity(double val) {
+    const double clamped = std::clamp(val, 0.0, 1.0);
+    if (std::abs(m_settings.dockOpacity - clamped) > 0.001) {
+        m_settings.dockOpacity = clamped;
+        saveSettings();
+        emit settingsChanged();
+    }
+}
+
+void DockController::setDockTransparency(double val) {
+    setDockOpacity(1.0 - val);
+}
+
 void DockController::setSettingsOpen(bool open) {
     if (m_isSettingsOpen != open) {
         m_isSettingsOpen = open;
@@ -846,6 +859,7 @@ void DockController::loadSettings() {
     m_settings.cornerRadius = settings.value("appearance/cornerRadius", 20.0).toDouble();
     m_settings.autoCornerRadius = settings.value("appearance/autoCornerRadius", true).toBool();
     m_settings.multiInstanceMode = std::clamp(settings.value("appearance/multiInstanceMode", 0).toInt(), 0, 1);
+    m_settings.dockOpacity = std::clamp(settings.value("appearance/dockOpacity", 0.42).toDouble(), 0.0, 1.0);
 
     const int itemCount = settings.beginReadArray(QStringLiteral("items"));
     if (itemCount > 0) {
@@ -903,6 +917,8 @@ void DockController::saveSettings() {
     settings.setValue("appearance/cornerRadius", m_settings.cornerRadius);
     settings.setValue("appearance/autoCornerRadius", m_settings.autoCornerRadius);
     settings.setValue("appearance/multiInstanceMode", m_settings.multiInstanceMode);
+    settings.setValue("appearance/dockOpacity", m_settings.dockOpacity);
+    settings.setValue("appearance/dockTransparency", 1.0 - m_settings.dockOpacity);
 
     settings.remove(QStringLiteral("items"));
     settings.beginWriteArray(QStringLiteral("items"));
