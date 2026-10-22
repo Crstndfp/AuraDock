@@ -19,12 +19,19 @@ Item {
     required property real itemWidth
     required property real itemHeight
 
+    property bool isBeingDragged: false
+
     x: itemX
     y: itemY
     width: itemWidth
     height: itemHeight
+    scale: isBeingDragged ? 1.12 : 1.0
+    z: isBeingDragged ? 100 : 1
 
     // Smooth temporal interpolation across frames
+    Behavior on scale {
+        NumberAnimation { duration: 120; easing.type: Easing.OutBack }
+    }
     Behavior on x {
         NumberAnimation { duration: 50; easing.type: Easing.OutQuad }
     }

@@ -269,3 +269,52 @@ TEST_F(DockSettingsTest, MaskUpdateRequired_EmitsDynamicCornerRadiusMatchingSett
     EXPECT_DOUBLE_EQ(capturedRadius, controller.pillHeight() / 2.0);
     EXPECT_DOUBLE_EQ(controller.pillRadius(), controller.pillHeight() / 2.0);
 }
+
+TEST_F(DockSettingsTest, MovePinnedItem_MovesItemRightAndPersistsOrder) {
+    // Initial order: [0]=Dolphin, [1]=Firefox, [2]=Separator, [3]=Downloads
+    EXPECT_EQ(controller.data(controller.index(0, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
+    EXPECT_EQ(controller.data(controller.index(1, 0), DockController::NameRole).toString().toStdString(), "Firefox");
+
+    EXPECT_TRUE(controller.canMoveItemRight(0));
+    EXPECT_FALSE(controller.canMoveItemLeft(0));
+    EXPECT_FALSE(controller.canMoveItemRight(1)); // 1 is last pinned item before separator at 2
+    EXPECT_TRUE(controller.canMoveItemLeft(1));
+
+    // Move Dolphin (0) to position 1
+    EXPECT_TRUE(controller.movePinnedItem(0, 1));
+
+    // New order: [0]=Firefox, [1]=Dolphin, [2]=Separator, [3]=Downloads
+    EXPECT_EQ(controller.data(controller.index(0, 0), DockController::NameRole).toString().toStdString(), "Firefox");
+    EXPECT_EQ(controller.data(controller.index(1, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
+    EXPECT_EQ(controller.data(controller.index(2, 0), DockController::NameRole).toString().toStdString(), "Separator");
+    EXPECT_EQ(controller.data(controller.index(3, 0), DockController::NameRole).toString().toStdString(), "Downloads");
+
+    // Verify order was persisted to test config
+    DockController freshController;
+    freshController.loadSettings();
+    EXPECT_EQ(freshController.data(freshController.index(0, 0), DockController::NameRole).toString().toStdString(), "Firefox");
+    EXPECT_EQ(freshController.data(freshController.index(1, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
+}
+
+TEST_F(DockSettingsTest, MovePinnedItem_EnforcesBoundaryLimitsAndRejectsSeparatorOrUnpinnedMove) {
+    // Attempting to move past separator (index 2) must be rejected
+    EXPECT_FALSE(controller.movePinnedItem(0, 2));
+    EXPECT_FALSE(controller.movePinnedItem(0, 3));
+    EXPECT_FALSE(controller.movePinnedItem(0, -1));
+
+    // Attempting to move the separator (index 2) or folder (index 3) must be rejected
+    EXPECT_FALSE(controller.movePinnedItem(2, 0));
+    EXPECT_FALSE(controller.movePinnedItem(3, 0));
+
+    // Moving to same index is a valid no-op
+    EXPECT_TRUE(controller.movePinnedItem(0, 0));
+
+    // moveItemRight / moveItemLeft helpers
+    EXPECT_TRUE(controller.moveItemRight(0)); // Dolphin (0) moves to 1
+    EXPECT_EQ(controller.data(controller.index(0, 0), DockController::NameRole).toString().toStdString(), "Firefox");
+    EXPECT_EQ(controller.data(controller.index(1, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
+
+    EXPECT_TRUE(controller.moveItemLeft(1)); // Dolphin (1) moves back to 0
+    EXPECT_EQ(controller.data(controller.index(0, 0), DockController::NameRole).toString().toStdString(), "Dolphin");
+    EXPECT_EQ(controller.data(controller.index(1, 0), DockController::NameRole).toString().toStdString(), "Firefox");
+}

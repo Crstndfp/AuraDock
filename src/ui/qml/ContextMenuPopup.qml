@@ -14,9 +14,13 @@ Item {
 
     property real targetX: 0
     property real targetY: 0
+    property bool canMoveLeft: false
+    property bool canMoveRight: false
 
     signal openNewInstance(int index)
     signal toggleKeepInDock(int index)
+    signal moveItemLeft(int index)
+    signal moveItemRight(int index)
     signal launchOnDiscreteGpu(int index)
     signal closeAllWindows(int index)
     signal forceQuit(int index)
@@ -140,6 +144,60 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         root.toggleKeepInDock(root.targetItemIndex);
+                        root.isOpen = false;
+                    }
+                }
+            }
+
+            // Option 2b: Move Left (pinned apps only)
+            Rectangle {
+                visible: root.targetItemType === 0 && root.targetItemIsPinned && root.canMoveLeft
+                width: parent.width
+                height: 28
+                radius: 6
+                color: optMoveLeftMouse.containsMouse ? Qt.rgba(0.2, 0.5, 0.9, 0.65) : "transparent"
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "⬅  Mover a la izquierda"
+                    color: "#FFFFFF"
+                    font.pixelSize: 12
+                }
+                MouseArea {
+                    id: optMoveLeftMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        root.moveItemLeft(root.targetItemIndex);
+                        root.isOpen = false;
+                    }
+                }
+            }
+
+            // Option 2c: Move Right (pinned apps only)
+            Rectangle {
+                visible: root.targetItemType === 0 && root.targetItemIsPinned && root.canMoveRight
+                width: parent.width
+                height: 28
+                radius: 6
+                color: optMoveRightMouse.containsMouse ? Qt.rgba(0.2, 0.5, 0.9, 0.65) : "transparent"
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "➡  Mover a la derecha"
+                    color: "#FFFFFF"
+                    font.pixelSize: 12
+                }
+                MouseArea {
+                    id: optMoveRightMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        root.moveItemRight(root.targetItemIndex);
                         root.isOpen = false;
                     }
                 }

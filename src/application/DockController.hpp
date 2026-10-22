@@ -152,6 +152,12 @@ public:
     Q_INVOKABLE void closeItem(int index);
     Q_INVOKABLE void insertSeparator(int afterIndex);
     Q_INVOKABLE void removeSeparator(int index);
+    Q_INVOKABLE bool movePinnedItem(int fromIndex, int toIndex);
+    Q_INVOKABLE bool moveItemLeft(int index);
+    Q_INVOKABLE bool moveItemRight(int index);
+    Q_INVOKABLE bool canMoveItemLeft(int index) const;
+    Q_INVOKABLE bool canMoveItemRight(int index) const;
+    [[nodiscard]] int maxPinnedIndex() const;
     Q_INVOKABLE void resetSettingsToDefaults();
     Q_INVOKABLE void openSettingsWindow() { setSettingsOpen(true); }
     Q_INVOKABLE void closeSettingsWindow() { setSettingsOpen(false); }

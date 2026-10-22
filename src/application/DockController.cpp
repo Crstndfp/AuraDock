@@ -519,6 +519,70 @@ void DockController::pinApp(int index) {
     saveSettings();
 }
 
+int DockController::maxPinnedIndex() const {
+    const int sepIdx = findMainSeparatorIndex();
+    if (sepIdx >= 0) {
+        return sepIdx - 1;
+    }
+    return findUnpinnedInsertIndex() - 1;
+}
+
+bool DockController::canMoveItemLeft(int index) const {
+    if (index <= 0 || index >= static_cast<int>(m_items.size())) {
+        return false;
+    }
+    const auto &item = m_items[index];
+    return item.isPinned && item.type == domain::entities::DockItemType::AppLauncher;
+}
+
+bool DockController::canMoveItemRight(int index) const {
+    if (index < 0 || index >= maxPinnedIndex()) {
+        return false;
+    }
+    const auto &item = m_items[index];
+    return item.isPinned && item.type == domain::entities::DockItemType::AppLauncher;
+}
+
+bool DockController::movePinnedItem(int fromIndex, int toIndex) {
+    if (fromIndex < 0 || fromIndex >= static_cast<int>(m_items.size())) {
+        return false;
+    }
+    const int maxIdx = maxPinnedIndex();
+    if (toIndex < 0 || toIndex > maxIdx || fromIndex > maxIdx) {
+        return false;
+    }
+    if (fromIndex == toIndex) {
+        return true;
+    }
+
+    const auto &fromItem = m_items[fromIndex];
+    if (!fromItem.isPinned || fromItem.type != domain::entities::DockItemType::AppLauncher) {
+        return false;
+    }
+
+    const int destRow = (toIndex > fromIndex) ? (toIndex + 1) : toIndex;
+    if (!beginMoveRows(QModelIndex(), fromIndex, fromIndex, QModelIndex(), destRow)) {
+        return false;
+    }
+
+    auto item = std::move(m_items[fromIndex]);
+    m_items.erase(m_items.begin() + fromIndex);
+    m_items.insert(m_items.begin() + toIndex, std::move(item));
+    endMoveRows();
+
+    recomputeLayout();
+    saveSettings();
+    return true;
+}
+
+bool DockController::moveItemLeft(int index) {
+    return movePinnedItem(index, index - 1);
+}
+
+bool DockController::moveItemRight(int index) {
+    return movePinnedItem(index, index + 1);
+}
+
 void DockController::unpinApp(int index) {
     if (index < 0 || index >= static_cast<int>(m_items.size())) {
         return;

@@ -72,6 +72,7 @@ Window {
 
             delegate: DockIconDelegate {
                 id: iconDelegate
+                isBeingDragged: dockHoverArea.isDragging && dockHoverArea.dragIndex === index
             }
         }
 
@@ -102,15 +103,75 @@ Window {
         }
 
         // Master Unified Mouse Area across entire dock surface
-        // Handles continuous hover tracking and clicks without child item stealing
+        // Handles continuous hover tracking, drag-to-reorder, and clicks without child item stealing
         MouseArea {
             id: dockHoverArea
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton
 
+            property int dragIndex: -1
+            property real dragStartX: 0
+            property real dragStartY: 0
+            property bool isDragging: false
+            property bool justFinishedDrag: false
+
+            onPressed: function(mouse) {
+                if (mouse.button === Qt.LeftButton) {
+                    var idx = dockController.itemAt(mouse.x, mouse.y);
+                    if (idx >= 0) {
+                        var details = dockController.getItemDetails(idx);
+                        // Only allow dragging pinned application launchers
+                        if (details.isPinned && details.type === 0) {
+                            dragIndex = idx;
+                            dragStartX = mouse.x;
+                            dragStartY = mouse.y;
+                            isDragging = false;
+                        } else {
+                            dragIndex = -1;
+                        }
+                    } else {
+                        dragIndex = -1;
+                    }
+                }
+            }
+
             onPositionChanged: function(mouse) {
                 dockController.updateCursor(mouse.x, mouse.y);
+
+                if (dragIndex >= 0 && (mouse.buttons & Qt.LeftButton)) {
+                    var deltaX = Math.abs(mouse.x - dragStartX);
+                    var deltaY = Math.abs(mouse.y - dragStartY);
+                    if (!isDragging && (deltaX > 8 || deltaY > 8)) {
+                        isDragging = true;
+                    }
+
+                    if (isDragging) {
+                        var targetIdx = dockController.itemAt(mouse.x, mouse.y);
+                        if (targetIdx >= 0 && targetIdx !== dragIndex) {
+                            var targetDetails = dockController.getItemDetails(targetIdx);
+                            // Can only drop onto another pinned app launcher
+                            if (targetDetails.isPinned && targetDetails.type === 0) {
+                                if (dockController.movePinnedItem(dragIndex, targetIdx)) {
+                                    dragIndex = targetIdx;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            onReleased: function(mouse) {
+                if (mouse.button === Qt.LeftButton) {
+                    if (isDragging) {
+                        justFinishedDrag = true;
+                        isDragging = false;
+                        dragIndex = -1;
+                        return;
+                    }
+                    dragIndex = -1;
+                    isDragging = false;
+                }
             }
 
             onEntered: {
@@ -118,11 +179,20 @@ Window {
             }
 
             onExited: {
+                if (isDragging) {
+                    isDragging = false;
+                    dragIndex = -1;
+                }
                 dockController.clearCursor();
                 dockController.pointerLeftDock();
             }
 
             onClicked: function(mouse) {
+                if (justFinishedDrag) {
+                    justFinishedDrag = false;
+                    return;
+                }
+
                 var itemIndex = dockController.itemAt(mouse.x, mouse.y);
                 if (itemIndex >= 0) {
                     var details = dockController.getItemDetails(itemIndex);
@@ -153,6 +223,8 @@ Window {
                         contextMenu.targetItemIsRunning = details.isRunning;
                         contextMenu.targetItemIsPinned = details.isPinned;
                         contextMenu.targetRunningWindowCount = details.runningWindowCount;
+                        contextMenu.canMoveLeft = dockController.canMoveItemLeft(itemIndex);
+                        contextMenu.canMoveRight = dockController.canMoveItemRight(itemIndex);
                         contextMenu.targetX = mouse.x;
                         contextMenu.isOpen = true;
                     }
@@ -167,6 +239,8 @@ Window {
                         contextMenu.targetItemIsRunning = false;
                         contextMenu.targetItemIsPinned = true;
                         contextMenu.targetRunningWindowCount = 0;
+                        contextMenu.canMoveLeft = false;
+                        contextMenu.canMoveRight = false;
                         contextMenu.targetX = mouse.x;
                         contextMenu.isOpen = true;
                     }
@@ -222,6 +296,14 @@ Window {
                 } else {
                     dockController.pinApp(idx);
                 }
+            }
+
+            onMoveItemLeft: function(idx) {
+                dockController.moveItemLeft(idx);
+            }
+
+            onMoveItemRight: function(idx) {
+                dockController.moveItemRight(idx);
             }
 
             onLaunchOnDiscreteGpu: function(idx) {
