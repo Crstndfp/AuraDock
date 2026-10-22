@@ -32,6 +32,14 @@ Window {
         dockController.surfaceHeight = root.height;
     }
 
+    readonly property bool isAnyPopupOpen: (multiInstancePopup && multiInstancePopup.isOpen) ||
+                                           (contextMenu && contextMenu.isOpen) ||
+                                           (stackPopup && stackPopup.isOpen)
+
+    onIsAnyPopupOpenChanged: {
+        dockController.setPopupOpen(isAnyPopupOpen);
+    }
+
     // Slide transform for Smart Auto-Hide
     Item {
         id: dockTransformContainer

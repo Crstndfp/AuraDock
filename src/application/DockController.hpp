@@ -141,6 +141,9 @@ public:
     [[nodiscard]] bool isSettingsOpen() const noexcept { return m_isSettingsOpen; }
     void setSettingsOpen(bool open);
 
+    [[nodiscard]] bool isPopupOpen() const noexcept { return m_isPopupOpen; }
+    Q_INVOKABLE void setPopupOpen(bool open);
+
     // QML Invokables for pointer and interaction
     Q_INVOKABLE void updateCursor(double x, double y);
     Q_INVOKABLE void clearCursor();
@@ -195,7 +198,7 @@ signals:
     void settingsChanged();
     void isSettingsOpenChanged();
     void windowsUpdated();
-    void maskUpdateRequired(const QRectF &pillRect, double cornerRadius, double dockOpacity, bool blurEnabled, const std::vector<QRectF> &activeIconRects);
+    void maskUpdateRequired(const QRectF &pillRect, double cornerRadius, double dockOpacity, bool blurEnabled, bool isPopupOpen, bool isSensorActive, const std::vector<QRectF> &activeIconRects);
     void itemActivated(const QString &id);
 
 private slots:
@@ -212,6 +215,7 @@ private:
 
     domain::entities::DockSettings m_settings;
     bool m_isSettingsOpen{false};
+    bool m_isPopupOpen{false};
 
     domain::services::ParabolicMagnificationEngine m_waveEngine;
     domain::services::BouncePhysicsSolver m_bounceSolver;

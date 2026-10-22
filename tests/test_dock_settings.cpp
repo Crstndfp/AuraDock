@@ -246,10 +246,12 @@ TEST_F(DockSettingsTest, MaskUpdateRequired_EmitsDynamicCornerRadiusMatchingSett
     QRectF capturedPillRect;
 
     QObject::connect(&controller, &DockController::maskUpdateRequired,
-                     [&capturedRadius, &capturedPillRect](const QRectF &pillRect, double radius, double dockOpacity, bool blurEnabled, const std::vector<QRectF> &activeIconRects) {
+                     [&capturedRadius, &capturedPillRect](const QRectF &pillRect, double radius, double dockOpacity, bool blurEnabled, bool isPopupOpen, bool isSensorActive, const std::vector<QRectF> &activeIconRects) {
         Q_UNUSED(activeIconRects);
         Q_UNUSED(dockOpacity);
         Q_UNUSED(blurEnabled);
+        Q_UNUSED(isPopupOpen);
+        Q_UNUSED(isSensorActive);
         capturedPillRect = pillRect;
         capturedRadius = radius;
     });
@@ -363,10 +365,12 @@ TEST_F(DockSettingsTest, BlurEnabled_PropagatesToMaskAndPersists) {
     double capturedOpacity = -1.0;
 
     QObject::connect(&controller, &DockController::maskUpdateRequired,
-                     [&capturedBlur, &capturedOpacity](const QRectF &pillRect, double radius, double dockOpacity, bool blurEnabled, const std::vector<QRectF> &activeIconRects) {
+                     [&capturedBlur, &capturedOpacity](const QRectF &pillRect, double radius, double dockOpacity, bool blurEnabled, bool isPopupOpen, bool isSensorActive, const std::vector<QRectF> &activeIconRects) {
         Q_UNUSED(pillRect);
         Q_UNUSED(radius);
         Q_UNUSED(activeIconRects);
+        Q_UNUSED(isPopupOpen);
+        Q_UNUSED(isSensorActive);
         capturedBlur = blurEnabled;
         capturedOpacity = dockOpacity;
     });
@@ -392,4 +396,39 @@ TEST_F(DockSettingsTest, BlurEnabled_PropagatesToMaskAndPersists) {
     // When opacity is set to 0.0 (100% transparent), mask receives dockOpacity == 0.0
     controller.setDockOpacity(0.0);
     EXPECT_DOUBLE_EQ(capturedOpacity, 0.0);
+}
+
+TEST_F(DockSettingsTest, PopupOpenAndSensorActive_PropagateToMaskUpdateSignal) {
+    bool capturedPopupOpen = false;
+    bool capturedSensorActive = false;
+    int maskSignalCount = 0;
+
+    QObject::connect(&controller, &DockController::maskUpdateRequired,
+                     [&capturedPopupOpen, &capturedSensorActive, &maskSignalCount](
+                         const QRectF &pillRect, double radius, double dockOpacity,
+                         bool blurEnabled, bool isPopupOpen, bool isSensorActive,
+                         const std::vector<QRectF> &activeIconRects) {
+        Q_UNUSED(pillRect);
+        Q_UNUSED(radius);
+        Q_UNUSED(dockOpacity);
+        Q_UNUSED(blurEnabled);
+        Q_UNUSED(activeIconRects);
+        capturedPopupOpen = isPopupOpen;
+        capturedSensorActive = isSensorActive;
+        ++maskSignalCount;
+    });
+
+    // Default state: no popups open
+    EXPECT_FALSE(controller.isPopupOpen());
+
+    // Open popup
+    controller.setPopupOpen(true);
+    EXPECT_TRUE(controller.isPopupOpen());
+    EXPECT_TRUE(capturedPopupOpen);
+    EXPECT_GE(maskSignalCount, 1);
+
+    // Close popup
+    controller.setPopupOpen(false);
+    EXPECT_FALSE(controller.isPopupOpen());
+    EXPECT_FALSE(capturedPopupOpen);
 }

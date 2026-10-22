@@ -15,7 +15,13 @@ public:
     ~WaylandSurfaceMaskSynchronizer() override;
 
 public slots:
-    void updateSurfaceMasks(const QRectF &pillRect, double cornerRadius, double dockOpacity, bool blurEnabled, const std::vector<QRectF> &activeIconRects);
+    void updateSurfaceMasks(const QRectF &pillRect,
+                            double cornerRadius,
+                            double dockOpacity,
+                            bool blurEnabled,
+                            bool isPopupOpen,
+                            bool isSensorActive,
+                            const std::vector<QRectF> &activeIconRects);
     void applySensorStripMask(double surfaceWidth, double surfaceHeight, double sensorHeight = 2.0);
 
 private:

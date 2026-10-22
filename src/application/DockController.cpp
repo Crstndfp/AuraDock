@@ -469,21 +469,25 @@ void DockController::pointerLeftDock() {
 void DockController::pointerEnteredSensor() {
     m_autoHideSM.onPointerEnteredSensor();
     emit autoHideStateChanged();
+    recomputeLayout();
 }
 
 void DockController::pointerLeftSensor() {
     m_autoHideSM.onPointerLeftSensor();
     emit autoHideStateChanged();
+    recomputeLayout();
 }
 
 void DockController::onHideAnimationFinished() {
     m_autoHideSM.onHideAnimationFinished();
     emit autoHideStateChanged();
+    recomputeLayout();
 }
 
 void DockController::onRevealAnimationFinished() {
     m_autoHideSM.onRevealAnimationFinished();
     emit autoHideStateChanged();
+    recomputeLayout();
 }
 
 void DockController::pinApp(int index) {
@@ -765,6 +769,13 @@ void DockController::setSettingsOpen(bool open) {
     }
 }
 
+void DockController::setPopupOpen(bool open) {
+    if (m_isPopupOpen != open) {
+        m_isPopupOpen = open;
+        recomputeLayout();
+    }
+}
+
 void DockController::resetSettingsToDefaults() {
     m_settings = domain::entities::DockSettings{};
     applySettingsToEngine();
@@ -986,7 +997,13 @@ void DockController::recomputeLayout() {
         activeIconRects.emplace_back(tr.x, tr.y, tr.width, tr.height);
     }
 
-    emit maskUpdateRequired(pillRect, m_lastLayout.pillGeometry.cornerRadius, m_settings.dockOpacity, m_settings.blurEnabled, activeIconRects);
+    emit maskUpdateRequired(pillRect,
+                            m_lastLayout.pillGeometry.cornerRadius,
+                            m_settings.dockOpacity,
+                            m_settings.blurEnabled,
+                            m_isPopupOpen,
+                            m_autoHideSM.isSensorActive(),
+                            activeIconRects);
 }
 
 } // namespace cachy_dock::application
