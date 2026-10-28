@@ -36,6 +36,7 @@ class DockController : public QAbstractListModel {
 
     Q_PROPERTY(double surfaceWidth READ surfaceWidth WRITE setSurfaceWidth NOTIFY surfaceDimensionsChanged)
     Q_PROPERTY(double surfaceHeight READ surfaceHeight WRITE setSurfaceHeight NOTIFY surfaceDimensionsChanged)
+    Q_PROPERTY(double screenHeight READ screenHeight WRITE setScreenHeight NOTIFY surfaceDimensionsChanged)
 
     // Configurable Dock Settings
     Q_PROPERTY(double bottomMargin READ bottomMargin WRITE setBottomMargin NOTIFY settingsChanged)
@@ -97,6 +98,12 @@ public:
 
     [[nodiscard]] double surfaceHeight() const noexcept { return m_surfaceHeight; }
     void setSurfaceHeight(double height);
+
+    [[nodiscard]] double screenHeight() const noexcept { return m_screenHeight; }
+    void setScreenHeight(double height);
+
+    [[nodiscard]] int lastGenieItemIndex() const noexcept { return m_lastGenieItemIndex; }
+    [[nodiscard]] int genieTriggerCount() const noexcept { return m_genieTriggerCount; }
 
     // Settings getters & setters
     [[nodiscard]] double bottomMargin() const noexcept { return m_settings.bottomMargin; }
@@ -200,12 +207,16 @@ signals:
     void windowsUpdated();
     void maskUpdateRequired(const QRectF &pillRect, double cornerRadius, double dockOpacity, bool blurEnabled, bool isPopupOpen, bool isSensorActive, const std::vector<QRectF> &activeIconRects);
     void itemActivated(const QString &id);
+    void genieEffectTriggered(int index, double iconX, double iconY, double iconWidth, double iconHeight, const QString &iconName, const QString &appName);
 
 private slots:
     void onBounceTick();
 
 private:
     void recomputeLayout();
+    void evaluateAutoHideFromWindows();
+    void triggerGenieEffect(int index);
+    void publishRunningIconsGeometry();
     int findUnpinnedInsertIndex() const;
     int findMainSeparatorIndex() const;
     void applySettingsToEngine();
@@ -227,11 +238,16 @@ private:
 
     double m_surfaceWidth{1920.0};
     double m_surfaceHeight{180.0};
+    double m_screenHeight{1080.0};
 
     // Bounce animation state
     QTimer m_bounceTimer;
     QElapsedTimer m_bounceElapsed;
     int m_bouncingItemIndex{-1};
+
+    // Genie animation state
+    int m_lastGenieItemIndex{-1};
+    int m_genieTriggerCount{0};
 };
 
 } // namespace cachy_dock::application

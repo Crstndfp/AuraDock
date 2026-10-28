@@ -149,6 +149,15 @@ void DockController::setSurfaceHeight(double height) {
     recomputeLayout();
 }
 
+void DockController::setScreenHeight(double height) {
+    if (qFuzzyCompare(m_screenHeight, height) || height <= 0.0) {
+        return;
+    }
+    m_screenHeight = height;
+    emit surfaceDimensionsChanged();
+    evaluateAutoHideFromWindows();
+}
+
 double DockController::exclusiveZone() const noexcept {
     const double baseDockHeight = m_waveEngine.getConfig().baseIconSize +
                                   (m_waveEngine.getConfig().pillPaddingY * 2.0) + 12.0;
@@ -156,8 +165,11 @@ double DockController::exclusiveZone() const noexcept {
 }
 
 double DockController::targetYOffset() const noexcept {
-    const double slideDistance = m_waveEngine.getConfig().baseIconSize +
-                                 (m_waveEngine.getConfig().pillPaddingY * 2.0) + 24.0;
+    const double iconHeightWithPad = m_waveEngine.getConfig().baseIconSize +
+                                     (m_waveEngine.getConfig().pillPaddingY * 2.0) +
+                                     m_settings.bottomMargin + m_settings.iconBottomMargin + 24.0;
+    const double barHeightWithMargin = m_settings.barHeight + m_settings.bottomMargin + 24.0;
+    const double slideDistance = std::max(iconHeightWithPad, barHeightWithMargin);
     return m_autoHideSM.getTargetVerticalOffset(slideDistance);
 }
 
@@ -264,11 +276,102 @@ void DockController::setWindowTracker(domain::interfaces::IWindowTracker* tracke
 
     m_windowTracker->setOnMaximizedStateChanged([this](const std::string& screen, bool hasMaximized) {
         Q_UNUSED(screen);
-        m_autoHideSM.onMaximizedWindowChanged(hasMaximized);
-        emit autoHideStateChanged();
+        const auto openWindows = m_windowTracker ? m_windowTracker->getWindows() : std::vector<domain::entities::WindowInstance>{};
+        if (openWindows.empty()) {
+            m_autoHideSM.onMaximizedWindowChanged(hasMaximized);
+            emit autoHideStateChanged();
+            recomputeLayout();
+        } else {
+            evaluateAutoHideFromWindows();
+        }
     });
 
     syncOpenWindows();
+}
+
+void DockController::evaluateAutoHideFromWindows() {
+    if (!m_windowTracker) {
+        return;
+    }
+
+    const auto openWindows = m_windowTracker->getWindows();
+    domain::services::WindowDodgeParameters params;
+    params.fallbackScreenWidth = m_surfaceWidth > 0.0 ? m_surfaceWidth : 1920.0;
+    params.fallbackScreenHeight = m_screenHeight > 0.0 ? m_screenHeight : 1080.0;
+    params.dockReservedHeight = std::max(
+        m_settings.barHeight + m_settings.bottomMargin,
+        m_settings.iconSize + m_settings.bottomMargin + m_settings.iconBottomMargin + 8.0);
+    params.dockPillLeft = m_lastLayout.pillGeometry.x;
+    params.dockPillRight = m_lastLayout.pillGeometry.x + m_lastLayout.pillGeometry.width;
+
+    const bool shouldHide = !openWindows.empty()
+        ? domain::services::SmartAutoHideStateMachine::shouldHideForWindows(openWindows, params)
+        : m_windowTracker->hasMaximizedWindowOnScreen("");
+
+    const auto prevState = m_autoHideSM.getState();
+    const double prevExcl = exclusiveZone();
+    m_autoHideSM.onMaximizedWindowChanged(shouldHide);
+    if (m_autoHideSM.getState() != prevState || !qFuzzyCompare(prevExcl, exclusiveZone())) {
+        emit autoHideStateChanged();
+        recomputeLayout();
+    } else {
+        emit autoHideStateChanged();
+    }
+}
+
+void DockController::publishRunningIconsGeometry() {
+    if (!m_windowTracker) {
+        return;
+    }
+    for (size_t i = 0; i < m_items.size() && i < m_lastLayout.iconTransforms.size(); ++i) {
+        if (m_items[i].isRunning && m_items[i].type == domain::entities::DockItemType::AppLauncher) {
+            const auto &tr = m_lastLayout.iconTransforms[i];
+            m_windowTracker->updateWindowIconGeometry(
+                m_items[i].id,
+                static_cast<int>(tr.x),
+                static_cast<int>(tr.y),
+                static_cast<int>(tr.width),
+                static_cast<int>(tr.height));
+        }
+    }
+}
+
+void DockController::triggerGenieEffect(int index) {
+    if (index < 0 || index >= static_cast<int>(m_items.size())) {
+        return;
+    }
+    m_lastGenieItemIndex = index;
+    ++m_genieTriggerCount;
+
+    double iconX = 0.0;
+    double iconY = 0.0;
+    double iconW = m_settings.iconSize;
+    double iconH = m_settings.iconSize;
+    if (static_cast<size_t>(index) < m_lastLayout.iconTransforms.size()) {
+        const auto &tr = m_lastLayout.iconTransforms[index];
+        iconX = tr.x;
+        iconY = tr.y;
+        iconW = tr.width;
+        iconH = tr.height;
+    }
+
+    if (m_windowTracker) {
+        m_windowTracker->updateWindowIconGeometry(
+            m_items[index].id,
+            static_cast<int>(iconX),
+            static_cast<int>(iconY),
+            static_cast<int>(iconW),
+            static_cast<int>(iconH));
+    }
+
+    emit genieEffectTriggered(
+        index,
+        iconX,
+        iconY,
+        iconW,
+        iconH,
+        QString::fromStdString(m_items[index].iconName),
+        QString::fromStdString(m_items[index].name));
 }
 
 int DockController::findUnpinnedInsertIndex() const {
@@ -296,9 +399,6 @@ void DockController::syncOpenWindows() {
     }
 
     const auto openWindows = m_windowTracker->getWindows();
-    const bool hasMaximized = m_windowTracker->hasMaximizedWindowOnScreen("");
-    m_autoHideSM.onMaximizedWindowChanged(hasMaximized);
-    emit autoHideStateChanged();
 
     bool modelChanged = false;
 
@@ -391,7 +491,11 @@ void DockController::syncOpenWindows() {
 
     if (modelChanged) {
         recomputeLayout();
+    } else {
+        publishRunningIconsGeometry();
     }
+
+    evaluateAutoHideFromWindows();
     emit windowsUpdated();
 }
 
@@ -406,6 +510,16 @@ void DockController::launchItem(int index) {
     }
 
     if (item.isRunning && m_windowTracker) {
+        // Check if the window being activated is currently minimized to trigger the Genie Lamp effect
+        const auto openWindows = m_windowTracker->getWindows();
+        for (const auto &win : openWindows) {
+            if (matchesAppId(item.id, win.appId)) {
+                if (win.isMinimized) {
+                    triggerGenieEffect(index);
+                }
+                break;
+            }
+        }
         // Raise and activate window directly via Wayland TasksModel
         m_windowTracker->activateApp(item.id);
         return;
@@ -423,6 +537,18 @@ void DockController::launchItem(int index) {
 
 void DockController::activateWindowInstance(qulonglong windowId) {
     if (m_windowTracker) {
+        const auto openWindows = m_windowTracker->getWindows();
+        for (const auto &win : openWindows) {
+            if (win.id == static_cast<uint64_t>(windowId) && win.isMinimized) {
+                for (size_t i = 0; i < m_items.size(); ++i) {
+                    if (matchesAppId(m_items[i].id, win.appId)) {
+                        triggerGenieEffect(static_cast<int>(i));
+                        break;
+                    }
+                }
+                break;
+            }
+        }
         m_windowTracker->activateWindow(static_cast<uint64_t>(windowId));
     }
 }
@@ -459,11 +585,13 @@ void DockController::onBounceTick() {
 void DockController::pointerEnteredDock() {
     m_autoHideSM.onPointerEnteredDock();
     emit autoHideStateChanged();
+    recomputeLayout();
 }
 
 void DockController::pointerLeftDock() {
     m_autoHideSM.onPointerLeftDock();
     emit autoHideStateChanged();
+    recomputeLayout();
 }
 
 void DockController::pointerEnteredSensor() {
@@ -765,13 +893,18 @@ void DockController::setBlurEnabled(bool val) {
 void DockController::setSettingsOpen(bool open) {
     if (m_isSettingsOpen != open) {
         m_isSettingsOpen = open;
+        m_autoHideSM.onPopupOrDialogActiveChanged(m_isPopupOpen || m_isSettingsOpen);
         emit isSettingsOpenChanged();
+        emit autoHideStateChanged();
+        recomputeLayout();
     }
 }
 
 void DockController::setPopupOpen(bool open) {
     if (m_isPopupOpen != open) {
         m_isPopupOpen = open;
+        m_autoHideSM.onPopupOrDialogActiveChanged(m_isPopupOpen || m_isSettingsOpen);
+        emit autoHideStateChanged();
         recomputeLayout();
     }
 }
@@ -841,6 +974,7 @@ void DockController::applySettingsToEngine() {
     config.customCornerRadius = m_settings.cornerRadius;
     m_waveEngine.setConfig(config);
     recomputeLayout();
+    evaluateAutoHideFromWindows();
     emit settingsChanged();
 }
 
@@ -985,6 +1119,7 @@ void DockController::recomputeLayout() {
     }
 
     emit layoutChanged();
+    publishRunningIconsGeometry();
 
     const QRectF pillRect(m_lastLayout.pillGeometry.x,
                          m_lastLayout.pillGeometry.y,

@@ -22,10 +22,12 @@ Window {
     Component.onCompleted: {
         dockController.surfaceWidth = root.width;
         dockController.surfaceHeight = root.height;
+        dockController.screenHeight = Screen.height > 0 ? Screen.height : 1080;
     }
 
     onWidthChanged: {
         dockController.surfaceWidth = root.width;
+        dockController.screenHeight = Screen.height > 0 ? Screen.height : 1080;
     }
 
     onHeightChanged: {
@@ -108,6 +110,18 @@ Window {
                 color: "#FFFFFF"
                 font.pixelSize: 11
                 font.bold: true
+            }
+        }
+
+        // Magic Lamp (Genie) Emergence Overlay when restoring a minimized window
+        GenieLampOverlay {
+            id: genieOverlay
+        }
+
+        Connections {
+            target: dockController
+            function onGenieEffectTriggered(genieIdx, ix, iy, iw, ih, iname, aname) {
+                genieOverlay.triggerGenie(ix, iy, iw, ih, iname, aname);
             }
         }
 

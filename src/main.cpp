@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<cachy_dock::infrastructure::wayland::WaylandSurfaceMaskSynchronizer> maskSynchronizer;
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
-                     &app, [&maskSynchronizer, dockController = dockController.get()](QObject *obj, const QUrl &objUrl) {
+                     &app, [&maskSynchronizer, dockController = dockController.get(), kwinTracker = kwinTracker.get()](QObject *obj, const QUrl &objUrl) {
         if (!obj) {
             qCritical() << "[CachyDock] Failed to create QML root object from:" << objUrl;
             QCoreApplication::exit(-1);
@@ -114,6 +114,8 @@ int main(int argc, char *argv[]) {
 
             window->setVisible(true);
             window->show();
+            kwinTracker->setDockWindow(window);
+            dockController->syncOpenWindows();
             qDebug() << "[CachyDock] Window shown. Geometry:" << window->geometry() << "Visible:" << window->isVisible();
         }
     }, Qt::QueuedConnection);

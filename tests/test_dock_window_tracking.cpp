@@ -554,3 +554,137 @@ TEST(DockWindowTrackingTest, ActivateAndCloseSpecificWindowInstance_TargetsReque
     EXPECT_EQ(afterCloseList[0].toMap()["windowId"].toULongLong(), 202ULL);
     EXPECT_EQ(controller.data(controller.index(0, 0), DockController::RunningWindowCountRole).toInt(), 1);
 }
+
+TEST(DockWindowTrackingTest, TallNonMaximizedWindow_TriggersControllerAutoHideAndRestoresWhenShrunkOrMinimized) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    controller.setSurfaceWidth(1920.0);
+    controller.setSurfaceHeight(280.0);
+    controller.setScreenHeight(1080.0);
+
+    std::vector<DockItem> items = {
+        DockItem{.id = "org.kde.dolphin.desktop", .name = "Dolphin", .iconName = "dolphin", .type = DockItemType::AppLauncher, .isPinned = true}
+    };
+    controller.setItems(items);
+    controller.setWindowTracker(&tracker);
+
+    // Initially visible
+    EXPECT_DOUBLE_EQ(controller.targetYOffset(), 0.0);
+    EXPECT_GT(controller.exclusiveZone(), 0.0);
+
+    // 1. Open a narrow full-height window (from y=24 down to top of dock y+h=1004, width=600)
+    WindowInstance tallNarrowWin{
+        .id = 301,
+        .appId = "org.kde.dolphin",
+        .title = "Dolphin",
+        .iconName = "dolphin",
+        .isMaximized = false,
+        .isMinimized = false,
+        .isFullscreen = false,
+        .isActive = true,
+        .windowCount = 1,
+        .x = 50,
+        .y = 24,
+        .width = 600,
+        .height = 980,
+        .screenX = 0,
+        .screenY = 0,
+        .screenWidth = 1920,
+        .screenHeight = 1080
+    };
+    tracker.simulateWindowChange({tallNarrowWin});
+
+    // Dock must hide (targetYOffset > 0, exclusiveZone == 0)
+    EXPECT_GT(controller.targetYOffset(), 0.0);
+    EXPECT_DOUBLE_EQ(controller.exclusiveZone(), 0.0);
+    controller.onHideAnimationFinished();
+    EXPECT_TRUE(controller.isSensorActive());
+
+    // 2. Minimize the tall window: dock must reveal itself
+    tallNarrowWin.isMinimized = true;
+    tracker.simulateWindowChange({tallNarrowWin});
+    EXPECT_DOUBLE_EQ(controller.targetYOffset(), 0.0);
+    controller.onRevealAnimationFinished();
+    EXPECT_FALSE(controller.isSensorActive());
+
+    // 3. Restore the tall window alongside a small window: dock must hide again
+    tallNarrowWin.isMinimized = false;
+    WindowInstance smallWin{
+        .id = 302,
+        .appId = "org.kde.kcalc",
+        .title = "KCalc",
+        .iconName = "accessories-calculator",
+        .isMaximized = false,
+        .isMinimized = false,
+        .isActive = true,
+        .x = 700,
+        .y = 300,
+        .width = 350,
+        .height = 400,
+        .screenWidth = 1920,
+        .screenHeight = 1080
+    };
+    tracker.simulateWindowChange({tallNarrowWin, smallWin});
+    EXPECT_GT(controller.targetYOffset(), 0.0);
+}
+
+TEST(DockWindowTrackingTest, ClickingMinimizedAppInDock_TriggersGenieEffectAndUnminimizesWindow) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    std::vector<DockItem> items = {
+        DockItem{.id = "org.kde.dolphin.desktop", .name = "Dolphin", .iconName = "dolphin", .type = DockItemType::AppLauncher, .isPinned = true}
+    };
+    controller.setItems(items);
+    controller.setWindowTracker(&tracker);
+
+    int capturedGenieIndex = -1;
+    QString capturedIconName;
+    int signalEmitCount = 0;
+
+    QObject::connect(&controller, &DockController::genieEffectTriggered,
+                     [&](int idx, double ix, double iy, double iw, double ih, const QString &iconName, const QString &appName) {
+        Q_UNUSED(ix);
+        Q_UNUSED(iy);
+        Q_UNUSED(iw);
+        Q_UNUSED(ih);
+        Q_UNUSED(appName);
+        capturedGenieIndex = idx;
+        capturedIconName = iconName;
+        ++signalEmitCount;
+    });
+
+    // Simulate a minimized Dolphin window
+    WindowInstance minimizedDolphin{
+        .id = 401,
+        .appId = "org.kde.dolphin",
+        .title = "Dolphin",
+        .iconName = "dolphin",
+        .isMaximized = false,
+        .isMinimized = true,
+        .isFullscreen = false,
+        .isActive = false,
+        .windowCount = 1
+    };
+    tracker.simulateWindowChange({minimizedDolphin});
+
+    // Clicking the minimized Dolphin icon in the dock must trigger the Genie Lamp effect and unminimize it
+    controller.launchItem(0);
+
+    EXPECT_EQ(signalEmitCount, 1);
+    EXPECT_EQ(capturedGenieIndex, 0);
+    EXPECT_EQ(capturedIconName.toStdString(), "dolphin");
+    EXPECT_EQ(controller.lastGenieItemIndex(), 0);
+    EXPECT_EQ(controller.genieTriggerCount(), 1);
+
+    // Verify window is now unminimized and active
+    QVariantList winList = controller.getWindowsForItem(0);
+    ASSERT_EQ(winList.size(), 1);
+    EXPECT_FALSE(winList[0].toMap()["isMinimized"].toBool());
+    EXPECT_TRUE(winList[0].toMap()["isActive"].toBool());
+
+    // Clicking again while already unminimized must NOT re-trigger the Genie effect
+    controller.launchItem(0);
+    EXPECT_EQ(signalEmitCount, 1);
+}

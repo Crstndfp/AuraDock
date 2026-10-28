@@ -21,6 +21,13 @@ public:
     virtual void activateApp(const std::string& appId) = 0;
     virtual void closeWindow(uint64_t windowId) = 0;
     virtual void closeAllWindowsForApp(const std::string& appId) = 0;
+    virtual void updateWindowIconGeometry(const std::string& appId, int x, int y, int width, int height) {
+        (void)appId;
+        (void)x;
+        (void)y;
+        (void)width;
+        (void)height;
+    }
 
     virtual void setOnWindowsChanged(std::function<void()> callback) = 0;
     virtual void setOnActiveWindowChanged(std::function<void(const std::string& activeAppId)> callback) = 0;

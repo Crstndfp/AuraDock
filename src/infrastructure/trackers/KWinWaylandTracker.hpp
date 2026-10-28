@@ -2,6 +2,10 @@
 
 #include "domain/interfaces/IWindowTracker.hpp"
 #include <QObject>
+#include <QQuickWindow>
+#include <QQuickItem>
+#include <QHash>
+#include <QRect>
 #include <vector>
 #include <string>
 
@@ -21,6 +25,8 @@ public:
     void start() override;
     void stop() override;
 
+    void setDockWindow(QQuickWindow *window);
+
     [[nodiscard]] std::vector<domain::entities::WindowInstance> getWindows() const override;
     [[nodiscard]] bool hasMaximizedWindowOnScreen(const std::string& screenName) const override;
 
@@ -28,6 +34,7 @@ public:
     void activateApp(const std::string& appId) override;
     void closeWindow(uint64_t windowId) override;
     void closeAllWindowsForApp(const std::string& appId) override;
+    void updateWindowIconGeometry(const std::string& appId, int x, int y, int width, int height) override;
 
     void setOnWindowsChanged(std::function<void()> callback) override;
     void setOnActiveWindowChanged(std::function<void(const std::string& activeAppId)> callback) override;
@@ -41,7 +48,12 @@ private slots:
     void onTasksUpdated();
 
 private:
+    void publishDelegateGeometryForRow(int row, const QRect &rect);
+
     TaskManager::TasksModel *m_tasksModel{nullptr};
+    QQuickWindow *m_dockWindow{nullptr};
+    QQuickItem *m_delegateGeometryProxy{nullptr};
+    QHash<QString, QRect> m_iconGeometries;
     std::vector<domain::entities::WindowInstance> m_windows;
     bool m_isRunning{false};
     bool m_hasMaximizedOnCurrentScreen{false};

@@ -61,6 +61,54 @@ Item {
         visible: !root.isSeparator
         anchors.fill: parent
 
+        transform: [
+            Scale {
+                id: lampScale
+                origin.x: iconContainer.width * 0.5
+                origin.y: iconContainer.height
+                xScale: 1.0
+                yScale: 1.0
+            },
+            Translate {
+                id: lampTranslate
+                y: 0.0
+            }
+        ]
+
+        Connections {
+            target: dockController
+            function onGenieEffectTriggered(genieIdx, ix, iy, iw, ih, iname, aname) {
+                if (genieIdx === root.index) {
+                    genieLampAnim.restart();
+                }
+            }
+        }
+
+        SequentialAnimation {
+            id: genieLampAnim
+
+            // Phase 1: Magic lamp compresses at base
+            ParallelAnimation {
+                NumberAnimation { target: lampScale; property: "xScale"; to: 1.30; duration: 85; easing.type: Easing.OutQuad }
+                NumberAnimation { target: lampScale; property: "yScale"; to: 0.68; duration: 85; easing.type: Easing.OutQuad }
+                NumberAnimation { target: lampTranslate; property: "y"; to: 4.0; duration: 85; easing.type: Easing.OutQuad }
+            }
+
+            // Phase 2: Genie erupts upward out of the lamp spout
+            ParallelAnimation {
+                NumberAnimation { target: lampScale; property: "xScale"; to: 0.76; duration: 150; easing.type: Easing.OutCubic }
+                NumberAnimation { target: lampScale; property: "yScale"; to: 1.34; duration: 150; easing.type: Easing.OutCubic }
+                NumberAnimation { target: lampTranslate; property: "y"; to: -10.0; duration: 150; easing.type: Easing.OutCubic }
+            }
+
+            // Phase 3: Elastic settle back to resting proportions
+            ParallelAnimation {
+                NumberAnimation { target: lampScale; property: "xScale"; to: 1.0; duration: 220; easing.type: Easing.OutElastic }
+                NumberAnimation { target: lampScale; property: "yScale"; to: 1.0; duration: 220; easing.type: Easing.OutElastic }
+                NumberAnimation { target: lampTranslate; property: "y"; to: 0.0; duration: 220; easing.type: Easing.OutElastic }
+            }
+        }
+
         Image {
             id: iconImage
             anchors.fill: parent
