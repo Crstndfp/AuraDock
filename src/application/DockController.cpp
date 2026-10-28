@@ -174,12 +174,22 @@ double DockController::targetYOffset() const noexcept {
 }
 
 bool DockController::isSensorActive() const noexcept {
-    return m_autoHideSM.isSensorActive();
+    return m_autoHideSM.isSensorActive() ||
+           m_autoHideSM.getState() == domain::services::AutoHideState::Hiding;
 }
 
 void DockController::updateCursor(double x, double y) {
     m_cursor = domain::services::Point2D{.x = x, .y = y};
     recomputeLayout();
+
+    const double pillTop = m_lastLayout.pillGeometry.y - 36.0;
+    const double pillLeft = m_lastLayout.pillGeometry.x - 24.0;
+    const double pillRight = m_lastLayout.pillGeometry.x + m_lastLayout.pillGeometry.width + 24.0;
+    const bool insideInteractiveZone = (x >= pillLeft && x <= pillRight && y >= pillTop) || m_lastLayout.isMagnified;
+    if (!insideInteractiveZone) {
+        m_autoHideSM.onPointerLeftDock();
+        emit autoHideStateChanged();
+    }
 }
 
 void DockController::clearCursor() {
@@ -1137,7 +1147,7 @@ void DockController::recomputeLayout() {
                             m_settings.dockOpacity,
                             m_settings.blurEnabled,
                             m_isPopupOpen,
-                            m_autoHideSM.isSensorActive(),
+                            isSensorActive(),
                             activeIconRects);
 }
 

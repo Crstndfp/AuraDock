@@ -688,3 +688,43 @@ TEST(DockWindowTrackingTest, ClickingMinimizedAppInDock_TriggersGenieEffectAndUn
     controller.launchItem(0);
     EXPECT_EQ(signalEmitCount, 1);
 }
+
+TEST(DockWindowTrackingTest, MaximizedWindow_ImmediatelyCollapsesMaskAndActivatesSensorWithoutWaitingForAnimation) {
+    DockController controller;
+    KWinWaylandTracker tracker;
+
+    controller.setSurfaceWidth(1920.0);
+    controller.setSurfaceHeight(280.0);
+    controller.setScreenHeight(1080.0);
+    controller.setWindowTracker(&tracker);
+
+    bool lastSensorActiveInMask = false;
+    QObject::connect(&controller, &DockController::maskUpdateRequired,
+                     [&](const QRectF &, double, double, bool, bool, bool isSensorActive, const std::vector<QRectF> &) {
+        lastSensorActiveInMask = isSensorActive;
+    });
+
+    WindowInstance maxWin{
+        .id = 501,
+        .appId = "firefox",
+        .title = "Mozilla Firefox",
+        .iconName = "firefox",
+        .isMaximized = true,
+        .isMinimized = false,
+        .isFullscreen = false,
+        .isActive = true,
+        .windowCount = 1,
+        .x = 0,
+        .y = 0,
+        .width = 1920,
+        .height = 1080,
+        .screenWidth = 1920,
+        .screenHeight = 1080
+    };
+    tracker.simulateWindowChange({maxWin});
+
+    EXPECT_GT(controller.targetYOffset(), 0.0);
+    EXPECT_DOUBLE_EQ(controller.exclusiveZone(), 0.0);
+    EXPECT_TRUE(controller.isSensorActive());
+    EXPECT_TRUE(lastSensorActiveInMask);
+}

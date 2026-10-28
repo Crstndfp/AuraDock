@@ -64,8 +64,8 @@ void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(
         return;
     }
 
-    const double padX = 24.0;
-    const double approachHeadroom = 80.0;
+    const double padX = 12.0;
+    const double approachHeadroom = 10.0;
     const double dockBottomY = static_cast<double>(m_window->height() > 0 ? m_window->height() : (pillRect.y() + pillRect.height() + 20.0));
     const double dockTopY = std::max(0.0, pillRect.y() - approachHeadroom);
 
@@ -75,8 +75,8 @@ void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(
 
     // Union with active icon bounds (including parabolic magnification and vertical bouncing offsets)
     for (const auto &iconRect : activeIconRects) {
-        QRectF iconZone(iconRect.x() - 8.0, iconRect.y() - 32.0,
-                        iconRect.width() + 16.0, iconRect.height() + 32.0);
+        QRectF iconZone(iconRect.x() - 6.0, iconRect.y() - 12.0,
+                        iconRect.width() + 12.0, iconRect.height() + 12.0);
         inputRegion = inputRegion.united(iconZone.toAlignedRect());
     }
 

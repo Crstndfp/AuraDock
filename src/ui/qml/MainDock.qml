@@ -23,6 +23,9 @@ Window {
         dockController.surfaceWidth = root.width;
         dockController.surfaceHeight = root.height;
         dockController.screenHeight = Screen.height > 0 ? Screen.height : 1080;
+        if (dockController.targetYOffset > 0) {
+            dockController.onHideAnimationFinished();
+        }
     }
 
     onWidthChanged: {
@@ -43,25 +46,38 @@ Window {
     }
 
     // Slide transform for Smart Auto-Hide
+    // IMPORTANT: Do NOT use anchors.fill here, as QQuickAnchors overrides the 'y' property
+    // and prevents the container from sliding down when targetYOffset > 0.
     Item {
         id: dockTransformContainer
-        anchors.fill: parent
-
+        x: 0
         y: dockController.targetYOffset
+        width: parent.width
+        height: parent.height
+        opacity: dockController.targetYOffset > 0 ? 0.0 : 1.0
+        visible: opacity > 0.01
 
         Behavior on y {
             NumberAnimation {
+                id: slideAnim
                 duration: 220
                 easing.type: Easing.OutCubic
                 onRunningChanged: {
                     if (!running) {
-                        if (dockTransformContainer.y > 0) {
+                        if (dockController.targetYOffset > 0) {
                             dockController.onHideAnimationFinished();
                         } else {
                             dockController.onRevealAnimationFinished();
                         }
                     }
                 }
+            }
+        }
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 180
+                easing.type: Easing.OutCubic
             }
         }
 

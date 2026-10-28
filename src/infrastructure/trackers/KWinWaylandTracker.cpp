@@ -1,6 +1,8 @@
 #include "infrastructure/trackers/KWinWaylandTracker.hpp"
 #include <taskmanager/tasksmodel.h>
 #include <taskmanager/abstracttasksmodel.h>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QFileInfo>
@@ -289,7 +291,14 @@ void KWinWaylandTracker::onTasksUpdated() {
         const bool isFullscreen = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::IsFullScreen).toBool();
         const int childCount = std::max(1, m_tasksModel->data(idx, TaskManager::AbstractTasksModel::ChildCount).toInt());
         const QRect geom = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::Geometry).toRect();
-        const QRect screenGeom = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::ScreenGeometry).toRect();
+        QRect screenGeom = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::ScreenGeometry).toRect();
+        if (screenGeom.width() <= 0 || screenGeom.height() <= 0) {
+            if (m_dockWindow && m_dockWindow->screen()) {
+                screenGeom = m_dockWindow->screen()->geometry();
+            } else if (QGuiApplication::primaryScreen()) {
+                screenGeom = QGuiApplication::primaryScreen()->geometry();
+            }
+        }
 
         if (!isMinimized && (isMaximized || isFullscreen)) {
             hasMaximized = true;
