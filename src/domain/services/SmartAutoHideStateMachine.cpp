@@ -59,7 +59,7 @@ bool SmartAutoHideStateMachine::doesWindowTriggerAutoHide(
     // Allowance for top desktop panels (e.g. KDE Plasma panel / Waybar) and titlebars
     const double topAllowance = std::max(76.0, scrH * 0.08);
     // Tolerance near the top edge of the dock for tiling gaps / window shadows
-    const double bottomTolerance = 28.0;
+    const double bottomTolerance = 14.0;
 
     // Case A: Window spans from the top of the workspace down to the top of the dock
     // (Handles full-height windows regardless of width: half-tiled, narrow terminals, sidebars)
