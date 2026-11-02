@@ -9,7 +9,7 @@
 [![KDE Frameworks 6](https://img.shields.io/badge/KDE-KF6-1D99F3?logo=kde)](https://kde.org/)
 [![Wayland LayerShell](https://img.shields.io/badge/Wayland-LayerShell-FFA500?logo=wayland)](https://wayland.freedesktop.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Unit Tests](https://img.shields.io/badge/Tests-56%2F56%20Passed-brightgreen.svg)](#testing)
+[![Unit Tests](https://img.shields.io/badge/Tests-61%2F61%20Passed-brightgreen.svg)](#testing)
 
 *AuraDock brings the fluid physics, refined aesthetic, and seamless window management of macOS to Linux Wayland compositors (KWin, wlroots).*
 
@@ -45,6 +45,7 @@
 - **Document & Folder Stacks**: Quick-access popup fan and grid views for folders (such as `~/Downloads`).
 - **Glassmorphic Context Menu**: Pin/unpin launchers, launch on discrete GPU (`DRI_PRIME=1`), close windows, or insert separators.
 - **Preferences Panel**: Real-time GUI adjustments for bar height, bottom margin, icon size, spacing, corner radius, opacity, and blur.
+- **Systemd CGroup Isolation & Suspend Resilience**: Launched applications run inside isolated transient `app.slice` systemd scopes (`systemd-run --user --scope --collect`) so restarting or stopping the dock never terminates user apps. Resilient against Wayland output disconnects during suspend/hibernation (`setQuitOnLastWindowClosed(false)` and automatic output hotplug recovery).
 
 ---
 
@@ -118,9 +119,16 @@ cmake --build build -j$(nproc)
 ctest --test-dir build --output-on-failure
 ```
 
-### 4. Launch AuraDock
+### 4. Launch AuraDock (or Enable Systemd User Service)
 ```bash
 ./build/cachy-dock
+```
+To run AuraDock automatically as a managed user service (with `KillMode=process` and `app.slice` isolation):
+```bash
+mkdir -p ~/.config/systemd/user
+cp packaging/systemd/cachy-dock.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now cachy-dock.service
 ```
 
 ---

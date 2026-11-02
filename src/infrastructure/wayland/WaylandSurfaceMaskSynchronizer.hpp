@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QPointer>
 #include <QQuickWindow>
 #include <QRectF>
 #include <vector>
@@ -25,7 +26,7 @@ public slots:
     void applySensorStripMask(double surfaceWidth, double surfaceHeight, double sensorHeight = 2.0);
 
 private:
-    QQuickWindow *m_window{nullptr};
+    QPointer<QQuickWindow> m_window;
 };
 
 } // namespace cachy_dock::infrastructure::wayland

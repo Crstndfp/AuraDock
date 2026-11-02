@@ -134,32 +134,126 @@ std::vector<domain::entities::DockItem> XdgDesktopRepository::getDefaultPinnedAp
     return items;
 }
 
+bool XdgDesktopRepository::isSystemdUserSessionAvailable() {
+    if (QStandardPaths::findExecutable(QStringLiteral("systemd-run")).isEmpty()) {
+        return false;
+    }
+    const QString runtimeDir = qEnvironmentVariable("XDG_RUNTIME_DIR");
+    if (runtimeDir.isEmpty()) {
+        return false;
+    }
+    return QFileInfo::exists(runtimeDir + QStringLiteral("/systemd/private"));
+}
+
+LaunchCommandSpec XdgDesktopRepository::buildLaunchCommand(
+    const std::string& execCommand,
+    bool useDiscreteGpu,
+    bool isolateInSystemdScope)
+{
+    LaunchCommandSpec spec;
+    if (execCommand.empty()) {
+        return spec;
+    }
+
+    QString cmd = QString::fromStdString(execCommand);
+    // Strip XDG field codes (%f, %F, %u, %U, %i, %c, %k, etc.)
+    cmd.remove(QRegularExpression(QStringLiteral("%[a-zA-Z]")));
+    cmd = cmd.trimmed();
+
+    QStringList args = QProcess::splitCommand(cmd);
+    if (args.isEmpty()) {
+        return spec;
+    }
+
+    const QString targetProgram = args.takeFirst();
+
+    if (useDiscreteGpu) {
+        spec.envOverrides = {
+            {"DRI_PRIME", "1"},
+            {"__NV_PRIME_RENDER_OFFLOAD", "1"},
+            {"__GLX_VENDOR_LIBRARY_NAME", "nvidia"},
+            {"__VK_LAYER_NV_optimus", "NVIDIA_only"}
+        };
+    }
+
+    const QString systemdRunPath = QStandardPaths::findExecutable(QStringLiteral("systemd-run"));
+    if (isolateInSystemdScope && !systemdRunPath.isEmpty()) {
+        spec.program = systemdRunPath.toStdString();
+        spec.usesSystemdScope = true;
+        spec.arguments = {
+            "--user",
+            "--scope",
+            "--collect",
+            "--quiet",
+            "--slice=app.slice"
+        };
+        for (const auto& [key, val] : spec.envOverrides) {
+            spec.arguments.push_back("--setenv=" + key + "=" + val);
+        }
+        spec.arguments.push_back("--");
+        spec.arguments.push_back(targetProgram.toStdString());
+        for (const auto& arg : args) {
+            spec.arguments.push_back(arg.toStdString());
+        }
+    } else {
+        spec.program = targetProgram.toStdString();
+        spec.usesSystemdScope = false;
+        for (const auto& arg : args) {
+            spec.arguments.push_back(arg.toStdString());
+        }
+    }
+
+    return spec;
+}
+
 bool XdgDesktopRepository::launch(const std::string& execCommand, bool useDiscreteGpu) {
     if (execCommand.empty()) {
         return false;
     }
 
     QString cmd = QString::fromStdString(execCommand);
-    // Strip XDG field codes (%f, %F, %u, %U, etc.)
     cmd.remove(QRegularExpression(QStringLiteral("%[a-zA-Z]")));
     cmd = cmd.trimmed();
 
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    if (useDiscreteGpu) {
-        // Environment variables for CachyOS hybrid GPU offloading
-        env.insert("DRI_PRIME", "1");
-        env.insert("__NV_PRIME_RENDER_OFFLOAD", "1");
-        env.insert("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
-        env.insert("__VK_LAYER_NV_optimus", "NVIDIA_only");
-    }
-
-    QStringList args = cmd.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-    if (args.isEmpty()) {
+    const QStringList parsedArgs = QProcess::splitCommand(cmd);
+    if (parsedArgs.isEmpty()) {
         return false;
     }
 
-    const QString program = args.takeFirst();
-    return QProcess::startDetached(program, args, QString(), nullptr);
+    // Verify target binary exists before wrapping in systemd-run so invalid commands fail immediately
+    const QString rawProgram = parsedArgs.first();
+    const QString resolvedBinary = rawProgram.startsWith(QLatin1Char('/'))
+        ? (QFileInfo(rawProgram).isExecutable() ? rawProgram : QString())
+        : QStandardPaths::findExecutable(rawProgram);
+    if (resolvedBinary.isEmpty()) {
+        return false;
+    }
+
+    const LaunchCommandSpec spec = buildLaunchCommand(
+        execCommand,
+        useDiscreteGpu,
+        isSystemdUserSessionAvailable());
+    if (spec.program.empty()) {
+        return false;
+    }
+
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    for (const auto& [key, val] : spec.envOverrides) {
+        env.insert(QString::fromStdString(key), QString::fromStdString(val));
+    }
+
+    QStringList qArgs;
+    qArgs.reserve(static_cast<qsizetype>(spec.arguments.size()));
+    for (const auto& arg : spec.arguments) {
+        qArgs.append(QString::fromStdString(arg));
+    }
+
+    QProcess process;
+    process.setProgram(QString::fromStdString(spec.program));
+    process.setArguments(qArgs);
+    process.setProcessEnvironment(env);
+    process.setWorkingDirectory(QDir::homePath());
+    return process.startDetached();
 }
 
 bool XdgDesktopRepository::launchDesktopId(const std::string& desktopId, bool useDiscreteGpu) {
@@ -174,6 +268,11 @@ bool XdgDesktopRepository::launchDesktopId(const std::string& desktopId, bool us
     }
     QFileInfo info(path);
     if (info.exists() && info.isDir()) {
+        if (!QStandardPaths::findExecutable(QStringLiteral("xdg-open")).isEmpty()) {
+            QString escapedPath = path;
+            escapedPath.replace(QLatin1Char('"'), QStringLiteral("\\\""));
+            return launch(QStringLiteral("xdg-open \"%1\"").arg(escapedPath).toStdString(), useDiscreteGpu);
+        }
         return QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     }
 

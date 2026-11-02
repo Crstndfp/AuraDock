@@ -79,3 +79,47 @@ TEST(XdgDesktopRepositoryTest, ThemeIconProvider_ResolvesDolphinIcon) {
     EXPECT_EQ(imgDesktop.width(), 64);
     EXPECT_EQ(imgDesktop.height(), 64);
 }
+
+TEST(XdgDesktopRepositoryTest, BuildLaunchCommand_WithSystemdScope_EscapesDockCGroupIntoAppSlice) {
+    auto spec = XdgDesktopRepository::buildLaunchCommand("kitty --single-instance %U", false, true);
+    ASSERT_TRUE(spec.usesSystemdScope);
+    EXPECT_NE(spec.program.find("systemd-run"), std::string::npos);
+
+    ASSERT_GE(spec.arguments.size(), 8u);
+    EXPECT_EQ(spec.arguments[0], "--user");
+    EXPECT_EQ(spec.arguments[1], "--scope");
+    EXPECT_EQ(spec.arguments[2], "--collect");
+    EXPECT_EQ(spec.arguments[3], "--quiet");
+    EXPECT_EQ(spec.arguments[4], "--slice=app.slice");
+    EXPECT_EQ(spec.arguments[5], "--");
+    EXPECT_EQ(spec.arguments[6], "kitty");
+    EXPECT_EQ(spec.arguments[7], "--single-instance");
+}
+
+TEST(XdgDesktopRepositoryTest, BuildLaunchCommand_WithDiscreteGpuAndSystemdScope_PropagatesPrimeEnvVars) {
+    auto spec = XdgDesktopRepository::buildLaunchCommand("blender %f", true, true);
+    ASSERT_TRUE(spec.usesSystemdScope);
+    EXPECT_EQ(spec.envOverrides.size(), 4u);
+
+    bool hasDriPrimeArg = false;
+    bool hasNvPrimeArg = false;
+    for (const auto &arg : spec.arguments) {
+        if (arg == "--setenv=DRI_PRIME=1") hasDriPrimeArg = true;
+        if (arg == "--setenv=__NV_PRIME_RENDER_OFFLOAD=1") hasNvPrimeArg = true;
+    }
+    EXPECT_TRUE(hasDriPrimeArg);
+    EXPECT_TRUE(hasNvPrimeArg);
+    EXPECT_EQ(spec.arguments.back(), "blender");
+}
+
+TEST(XdgDesktopRepositoryTest, BuildLaunchCommand_WithoutSystemdScope_FallsBackToDirectExecutable) {
+    auto spec = XdgDesktopRepository::buildLaunchCommand("/usr/bin/dolphin --new-window %u", false, false);
+    EXPECT_FALSE(spec.usesSystemdScope);
+    EXPECT_EQ(spec.program, "/usr/bin/dolphin");
+    ASSERT_EQ(spec.arguments.size(), 1u);
+    EXPECT_EQ(spec.arguments[0], "--new-window");
+}
+
+TEST(XdgDesktopRepositoryTest, Launch_WithNonExistentExecutable_ReturnsFalseImmediately) {
+    EXPECT_FALSE(XdgDesktopRepository::launch("definitely_missing_binary_xyz_987 --flag", false));
+}

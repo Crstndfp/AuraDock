@@ -9,6 +9,7 @@
 #include <QUrl>
 #include <QDebug>
 #include <algorithm>
+#include <utility>
 
 namespace cachy_dock::infrastructure::trackers {
 
@@ -78,21 +79,31 @@ void KWinWaylandTracker::start() {
 void KWinWaylandTracker::stop() {
     m_isRunning = false;
     if (m_tasksModel) {
-        delete m_tasksModel;
-        m_tasksModel = nullptr;
+        auto *model = std::exchange(m_tasksModel, nullptr);
+        model->disconnect(this);
+        delete model;
+    }
+    if (m_delegateGeometryProxy) {
+        delete m_delegateGeometryProxy.data();
+        m_delegateGeometryProxy.clear();
     }
 }
 
 void KWinWaylandTracker::setDockWindow(QQuickWindow *window) {
-    m_dockWindow = window;
-    if (m_delegateGeometryProxy) {
-        delete m_delegateGeometryProxy;
-        m_delegateGeometryProxy = nullptr;
+    if (m_dockWindow == window) {
+        return;
     }
+    if (m_delegateGeometryProxy) {
+        delete m_delegateGeometryProxy.data();
+        m_delegateGeometryProxy.clear();
+    }
+    m_dockWindow = window;
     if (m_dockWindow && m_dockWindow->contentItem()) {
         m_delegateGeometryProxy = new QQuickItem(m_dockWindow->contentItem());
         m_delegateGeometryProxy->setVisible(false);
-        onTasksUpdated();
+        if (m_isRunning && m_tasksModel) {
+            onTasksUpdated();
+        }
     }
 }
 
@@ -267,7 +278,7 @@ void KWinWaylandTracker::setOnMaximizedStateChanged(std::function<void(const std
 }
 
 void KWinWaylandTracker::onTasksUpdated() {
-    if (!m_tasksModel) {
+    if (!m_isRunning || !m_tasksModel) {
         return;
     }
 
@@ -293,7 +304,7 @@ void KWinWaylandTracker::onTasksUpdated() {
         const QRect geom = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::Geometry).toRect();
         QRect screenGeom = m_tasksModel->data(idx, TaskManager::AbstractTasksModel::ScreenGeometry).toRect();
         if (screenGeom.width() <= 0 || screenGeom.height() <= 0) {
-            if (m_dockWindow && m_dockWindow->screen()) {
+            if (!m_dockWindow.isNull() && m_dockWindow->screen()) {
                 screenGeom = m_dockWindow->screen()->geometry();
             } else if (QGuiApplication::primaryScreen()) {
                 screenGeom = QGuiApplication::primaryScreen()->geometry();

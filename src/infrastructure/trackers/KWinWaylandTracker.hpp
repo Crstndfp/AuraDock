@@ -2,6 +2,7 @@
 
 #include "domain/interfaces/IWindowTracker.hpp"
 #include <QObject>
+#include <QPointer>
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QHash>
@@ -24,8 +25,10 @@ public:
 
     void start() override;
     void stop() override;
+    [[nodiscard]] bool isRunning() const noexcept { return m_isRunning; }
 
     void setDockWindow(QQuickWindow *window);
+    [[nodiscard]] QQuickWindow *dockWindow() const noexcept { return m_dockWindow.data(); }
 
     [[nodiscard]] std::vector<domain::entities::WindowInstance> getWindows() const override;
     [[nodiscard]] bool hasMaximizedWindowOnScreen(const std::string& screenName) const override;
@@ -51,8 +54,8 @@ private:
     void publishDelegateGeometryForRow(int row, const QRect &rect);
 
     TaskManager::TasksModel *m_tasksModel{nullptr};
-    QQuickWindow *m_dockWindow{nullptr};
-    QQuickItem *m_delegateGeometryProxy{nullptr};
+    QPointer<QQuickWindow> m_dockWindow;
+    QPointer<QQuickItem> m_delegateGeometryProxy;
     QHash<QString, QRect> m_iconGeometries;
     std::vector<domain::entities::WindowInstance> m_windows;
     bool m_isRunning{false};

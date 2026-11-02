@@ -1,0 +1,18 @@
+[Unit]
+Description=AuraDock / Cachy Dock (Wayland Dock)
+Documentation=https://github.com/Crstndfp/AuraDock
+PartOf=graphical-session.target
+After=graphical-session.target plasma-workspace.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/cachy-dock
+Restart=always
+RestartSec=2s
+Slice=app.slice
+KillMode=process
+Environment=QT_QPA_PLATFORM=wayland;xcb
+TimeoutStopSec=5s
+
+[Install]
+WantedBy=graphical-session.target

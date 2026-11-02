@@ -728,3 +728,35 @@ TEST(DockWindowTrackingTest, MaximizedWindow_ImmediatelyCollapsesMaskAndActivate
     EXPECT_TRUE(controller.isSensorActive());
     EXPECT_TRUE(lastSensorActiveInMask);
 }
+
+TEST(DockWindowTrackingTest, DestroyingDockWindowBeforeTrackerStop_ClearsQPointerAndDoesNotCrashOnTeardown) {
+    int argc = 0;
+    char *argv[] = { nullptr };
+    std::unique_ptr<QGuiApplication> app;
+    if (!qApp) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+        app = std::make_unique<QGuiApplication>(argc, argv);
+    }
+
+    auto tracker = std::make_unique<KWinWaylandTracker>();
+    tracker->start();
+    EXPECT_TRUE(tracker->isRunning());
+
+    {
+        // Simulate QQmlApplicationEngine root QQuickWindow created after tracker and destroyed before tracker
+        QQuickWindow dockWindow;
+        tracker->setDockWindow(&dockWindow);
+        EXPECT_EQ(tracker->dockWindow(), &dockWindow);
+        tracker->updateWindowIconGeometry("org.kde.dolphin.desktop", 100, 900, 48, 48);
+    }
+
+    // Once dockWindow goes out of scope, QPointer<QQuickWindow> must automatically become nullptr
+    EXPECT_EQ(tracker->dockWindow(), nullptr);
+
+    // Stopping and destroying the tracker after QQuickWindow destruction must not dereference dangling pointer
+    EXPECT_NO_THROW({
+        tracker->stop();
+        EXPECT_FALSE(tracker->isRunning());
+        tracker.reset();
+    });
+}

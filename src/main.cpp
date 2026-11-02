@@ -2,6 +2,8 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QScreen>
+#include <QPointer>
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
@@ -19,6 +21,8 @@ int main(int argc, char *argv[]) {
     qputenv("QT_QPA_PLATFORM", "wayland;xcb");
 
     QGuiApplication app(argc, argv);
+    // Keep the daemon alive across Wayland output disconnects during suspend/hibernation
+    app.setQuitOnLastWindowClosed(false);
     app.setApplicationName(QStringLiteral("cachy-dock"));
     app.setOrganizationName(QStringLiteral("cachyos"));
     app.setOrganizationDomain(QStringLiteral("cachyos.org"));
@@ -78,9 +82,37 @@ int main(int argc, char *argv[]) {
     qDebug() << "[CachyDock] Loading QML from:" << qmlPath;
 
     std::unique_ptr<cachy_dock::infrastructure::wayland::WaylandSurfaceMaskSynchronizer> maskSynchronizer;
+    QPointer<QQuickWindow> dockWindow;
+
+    auto restoreWindowOnScreenWake = [&dockWindow, dockController = dockController.get()](QScreen *screen) {
+        if (!dockWindow || !screen) {
+            return;
+        }
+        if (dockWindow->screen() != screen) {
+            dockWindow->setScreen(screen);
+        }
+        const QRect geom = screen->geometry();
+        if (geom.width() > 0 && geom.height() > 0) {
+            dockController->setSurfaceWidth(static_cast<double>(geom.width()));
+            dockController->setScreenHeight(static_cast<double>(geom.height()));
+        }
+        dockWindow->setVisible(true);
+        dockWindow->show();
+        dockController->syncOpenWindows();
+    };
+
+    QObject::connect(&app, &QGuiApplication::screenAdded, &app, restoreWindowOnScreenWake);
+    QObject::connect(&app, &QGuiApplication::primaryScreenChanged, &app, restoreWindowOnScreenWake);
+
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&]() {
+        kwinTracker->setDockWindow(nullptr);
+        kwinTracker->stop();
+        dockController->setWindowTracker(nullptr);
+        maskSynchronizer.reset();
+    });
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
-                     &app, [&maskSynchronizer, dockController = dockController.get(), kwinTracker = kwinTracker.get()](QObject *obj, const QUrl &objUrl) {
+                     &app, [&maskSynchronizer, &dockWindow, dockController = dockController.get(), kwinTracker = kwinTracker.get()](QObject *obj, const QUrl &objUrl) {
         if (!obj) {
             qCritical() << "[CachyDock] Failed to create QML root object from:" << objUrl;
             QCoreApplication::exit(-1);
@@ -89,6 +121,7 @@ int main(int argc, char *argv[]) {
 
         auto *window = qobject_cast<QQuickWindow*>(obj);
         if (window) {
+            dockWindow = window;
             auto *lWindow = LayerShellQt::Window::get(window);
             if (lWindow) {
                 lWindow->setScope(QStringLiteral("cachy-dock"));
