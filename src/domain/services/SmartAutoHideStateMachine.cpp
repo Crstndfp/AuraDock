@@ -130,7 +130,11 @@ void SmartAutoHideStateMachine::onPointerLeftDock() {
 }
 
 void SmartAutoHideStateMachine::onPointerEnteredSensor() {
+    if (m_state != AutoHideState::HiddenSensor && m_state != AutoHideState::Hiding) {
+        return;
+    }
     m_pointerInsideSensor = true;
+    m_pointerInsideDock = true;
     evaluateDesiredVisibility();
 }
 
@@ -150,6 +154,7 @@ void SmartAutoHideStateMachine::onHideAnimationFinished() {
 void SmartAutoHideStateMachine::onRevealAnimationFinished() {
     if (m_state == AutoHideState::Revealing) {
         m_state = AutoHideState::Visible;
+        m_pointerInsideSensor = false;
         evaluateDesiredVisibility();
     }
 }

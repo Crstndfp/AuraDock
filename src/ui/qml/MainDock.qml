@@ -54,7 +54,6 @@ Window {
         y: dockController.targetYOffset
         width: parent.width
         height: parent.height
-        visible: dockController.targetYOffset === 0 || slideAnim.running
 
         Behavior on y {
             NumberAnimation {
@@ -376,25 +375,21 @@ Window {
         height: 16
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
-        visible: dockController.isSensorActive
+        enabled: dockController.isSensorActive
 
         Timer {
             id: dwellTimer
             interval: 35
             repeat: false
             onTriggered: {
-                if (edgeSensorArea.containsMouse) {
+                if (edgeSensorArea.enabled && edgeSensorArea.containsMouse) {
                     dockController.pointerEnteredSensor();
                 }
             }
         }
 
         onEntered: {
-            dwellTimer.restart();
-        }
-
-        onPositionChanged: {
-            if (!dwellTimer.running && !dockController.shouldBeVisible) {
+            if (dockController.isSensorActive) {
                 dwellTimer.restart();
             }
         }

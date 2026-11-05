@@ -605,6 +605,9 @@ void DockController::pointerLeftDock() {
 }
 
 void DockController::pointerEnteredSensor() {
+    if (!isSensorActive()) {
+        return;
+    }
     m_autoHideSM.onPointerEnteredSensor();
     emit autoHideStateChanged();
     recomputeLayout();

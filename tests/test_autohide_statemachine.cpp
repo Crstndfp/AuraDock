@@ -225,3 +225,39 @@ TEST(SmartAutoHideStateMachineTest, PointerEntersSensor_DoesNotAbortRevealWhenSe
     EXPECT_EQ(sm.getState(), AutoHideState::Hiding);
     EXPECT_FALSE(sm.shouldBeVisible());
 }
+
+TEST(SmartAutoHideStateMachineTest, AfterDockHidesFromPointerLeaving_DockRemainsHiddenAndDoesNotAutoReshow) {
+    SmartAutoHideStateMachine sm;
+    sm.onMaximizedWindowChanged(true);
+    sm.onHideAnimationFinished();
+    ASSERT_EQ(sm.getState(), AutoHideState::HiddenSensor);
+
+    // Hover reveals dock
+    sm.onPointerEnteredSensor();
+    EXPECT_EQ(sm.getState(), AutoHideState::Revealing);
+    sm.onRevealAnimationFinished();
+    EXPECT_EQ(sm.getState(), AutoHideState::Visible);
+    EXPECT_TRUE(sm.shouldBeVisible());
+
+    // Pointer leaves dock: should begin hiding
+    sm.onPointerLeftDock();
+    EXPECT_EQ(sm.getState(), AutoHideState::Hiding);
+    EXPECT_FALSE(sm.shouldBeVisible());
+
+    // Hide animation finishes: must transition to HiddenSensor and STAY hidden
+    sm.onHideAnimationFinished();
+    EXPECT_EQ(sm.getState(), AutoHideState::HiddenSensor);
+    EXPECT_FALSE(sm.shouldBeVisible());
+    EXPECT_TRUE(sm.isSensorActive());
+    EXPECT_DOUBLE_EQ(sm.getTargetVerticalOffset(100.0), 100.0);
+
+    // Calling onPointerEnteredSensor while already visible or revealing must be ignored
+    sm.onPointerEnteredSensor(); // transitions to Revealing
+    EXPECT_EQ(sm.getState(), AutoHideState::Revealing);
+    sm.onRevealAnimationFinished();
+    EXPECT_EQ(sm.getState(), AutoHideState::Visible);
+
+    // Spurious sensor event while already visible must be a no-op
+    sm.onPointerEnteredSensor();
+    EXPECT_EQ(sm.getState(), AutoHideState::Visible);
+}
