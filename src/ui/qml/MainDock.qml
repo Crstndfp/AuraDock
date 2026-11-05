@@ -54,14 +54,13 @@ Window {
         y: dockController.targetYOffset
         width: parent.width
         height: parent.height
-        opacity: dockController.targetYOffset > 0 ? 0.0 : 1.0
-        visible: opacity > 0.01
+        visible: dockController.targetYOffset === 0 || slideAnim.running
 
         Behavior on y {
             NumberAnimation {
                 id: slideAnim
-                duration: 220
-                easing.type: Easing.OutCubic
+                duration: dockController.targetYOffset > 0 ? 220 : 280
+                easing.type: dockController.targetYOffset > 0 ? Easing.InQuad : Easing.OutCubic
                 onRunningChanged: {
                     if (!running) {
                         if (dockController.targetYOffset > 0) {
@@ -71,13 +70,6 @@ Window {
                         }
                     }
                 }
-            }
-        }
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 180
-                easing.type: Easing.OutCubic
             }
         }
 
@@ -374,20 +366,21 @@ Window {
         }
     }
 
-    // Smart Auto-Hide Bottom Edge Sensor (2px strip at screen edge when hidden)
+    // Smart Auto-Hide Bottom Edge Sensor
+    // Positioned horizontally where the dock sits with 48px padding and 16px along the bottom edge
     MouseArea {
         id: edgeSensorArea
-        anchors.left: parent.left
-        anchors.right: parent.right
+        x: dockController.pillWidth > 0 ? Math.max(0, dockController.pillX - 48) : 0
+        width: dockController.pillWidth > 0 ? Math.min(parent.width - x, dockController.pillWidth + 96) : parent.width
         anchors.bottom: parent.bottom
-        height: 4
+        height: 16
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
         visible: dockController.isSensorActive
 
         Timer {
             id: dwellTimer
-            interval: 100
+            interval: 35
             repeat: false
             onTriggered: {
                 if (edgeSensorArea.containsMouse) {
@@ -400,9 +393,17 @@ Window {
             dwellTimer.restart();
         }
 
+        onPositionChanged: {
+            if (!dwellTimer.running && !dockController.shouldBeVisible) {
+                dwellTimer.restart();
+            }
+        }
+
         onExited: {
             dwellTimer.stop();
-            dockController.pointerLeftSensor();
+            if (dockController.isSensorActive) {
+                dockController.pointerLeftSensor();
+            }
         }
     }
 

@@ -203,3 +203,25 @@ TEST(SmartAutoHideStateMachineTest, MinimizedTallOrMaximizedWindow_IsIgnoredAndR
     EXPECT_EQ(sm.getState(), AutoHideState::Revealing);
     EXPECT_TRUE(sm.shouldBeVisible());
 }
+
+TEST(SmartAutoHideStateMachineTest, PointerEntersSensor_DoesNotAbortRevealWhenSensorExitsDuringAnimation) {
+    SmartAutoHideStateMachine sm;
+    sm.onMaximizedWindowChanged(true);
+    sm.onHideAnimationFinished();
+    ASSERT_EQ(sm.getState(), AutoHideState::HiddenSensor);
+
+    sm.onPointerEnteredSensor();
+    EXPECT_EQ(sm.getState(), AutoHideState::Revealing);
+    EXPECT_TRUE(sm.shouldBeVisible());
+
+    // While revealing, target vertical offset remains 0 to complete reveal
+    EXPECT_DOUBLE_EQ(sm.getTargetVerticalOffset(100.0), 0.0);
+
+    sm.onRevealAnimationFinished();
+    EXPECT_EQ(sm.getState(), AutoHideState::Visible);
+
+    // Pointer leaves the dock area
+    sm.onPointerLeftDock();
+    EXPECT_EQ(sm.getState(), AutoHideState::Hiding);
+    EXPECT_FALSE(sm.shouldBeVisible());
+}

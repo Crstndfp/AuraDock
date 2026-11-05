@@ -27,12 +27,21 @@ void WaylandSurfaceMaskSynchronizer::updateSurfaceMasks(
     // Always disable artificial background contrast to eliminate golden/amber hue distortion
     KWindowEffects::enableBackgroundContrast(m_window, false);
 
-    // 1. Auto-Hide Sensor State: collapse input region to a thin bottom edge strip
+    // 1. Auto-Hide Sensor State: collapse input region to a bottom edge strip where the dock sits
     if (isSensorActive) {
         KWindowEffects::enableBlurBehind(m_window, false);
         const int sHeight = m_window->height() > 0 ? m_window->height() : 280;
         const int sWidth = m_window->width() > 0 ? m_window->width() : 1920;
-        const QRect sensorRect(0, sHeight - 4, sWidth, 4);
+        const int sensorHeight = 16;
+        int sensorX = 0;
+        int sensorW = sWidth;
+        if (pillRect.width() > 0.0) {
+            const double pad = 48.0;
+            sensorX = std::max(0, static_cast<int>(pillRect.x() - pad));
+            const int right = std::min(sWidth, static_cast<int>(pillRect.x() + pillRect.width() + pad));
+            sensorW = std::max(100, right - sensorX);
+        }
+        const QRect sensorRect(sensorX, sHeight - sensorHeight, sensorW, sensorHeight);
         m_window->setMask(QRegion(sensorRect));
         return;
     }

@@ -33,6 +33,7 @@ class DockController : public QAbstractListModel {
     Q_PROPERTY(double exclusiveZone READ exclusiveZone NOTIFY autoHideStateChanged)
     Q_PROPERTY(double targetYOffset READ targetYOffset NOTIFY autoHideStateChanged)
     Q_PROPERTY(bool isSensorActive READ isSensorActive NOTIFY autoHideStateChanged)
+    Q_PROPERTY(bool shouldBeVisible READ shouldBeVisible NOTIFY autoHideStateChanged)
 
     Q_PROPERTY(double surfaceWidth READ surfaceWidth WRITE setSurfaceWidth NOTIFY surfaceDimensionsChanged)
     Q_PROPERTY(double surfaceHeight READ surfaceHeight WRITE setSurfaceHeight NOTIFY surfaceDimensionsChanged)
@@ -92,6 +93,7 @@ public:
     [[nodiscard]] double exclusiveZone() const noexcept;
     [[nodiscard]] double targetYOffset() const noexcept;
     [[nodiscard]] bool isSensorActive() const noexcept;
+    [[nodiscard]] bool shouldBeVisible() const noexcept { return m_autoHideSM.shouldBeVisible(); }
 
     [[nodiscard]] double surfaceWidth() const noexcept { return m_surfaceWidth; }
     void setSurfaceWidth(double width);

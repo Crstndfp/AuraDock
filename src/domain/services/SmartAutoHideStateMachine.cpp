@@ -125,6 +125,7 @@ void SmartAutoHideStateMachine::onPointerEnteredDock() {
 
 void SmartAutoHideStateMachine::onPointerLeftDock() {
     m_pointerInsideDock = false;
+    m_pointerInsideSensor = false;
     evaluateDesiredVisibility();
 }
 
@@ -160,6 +161,11 @@ bool SmartAutoHideStateMachine::shouldBeVisible() const noexcept {
 
     // Pointer inside or active popup/settings dialog keeps dock visible
     if (m_pointerInsideDock || m_pointerInsideSensor || m_popupOrDialogActive) {
+        return true;
+    }
+
+    // While actively revealing, keep visible until animation finishes or pointer explicitly leaves dock
+    if (m_state == AutoHideState::Revealing) {
         return true;
     }
 

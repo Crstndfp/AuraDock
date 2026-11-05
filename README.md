@@ -9,7 +9,7 @@
 [![KDE Frameworks 6](https://img.shields.io/badge/KDE-KF6-1D99F3?logo=kde)](https://kde.org/)
 [![Wayland LayerShell](https://img.shields.io/badge/Wayland-LayerShell-FFA500?logo=wayland)](https://wayland.freedesktop.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Unit Tests](https://img.shields.io/badge/Tests-61%2F61%20Passed-brightgreen.svg)](#testing)
+[![Unit Tests](https://img.shields.io/badge/Tests-63%2F63%20Passed-brightgreen.svg)](#testing)
 
 *AuraDock brings the fluid physics, refined aesthetic, and seamless window management of macOS to Linux Wayland compositors (KWin, wlroots).*
 

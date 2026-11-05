@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "application/DockController.hpp"
 #include "infrastructure/trackers/KWinWaylandTracker.hpp"
+#include "infrastructure/wayland/WaylandSurfaceMaskSynchronizer.hpp"
 #include "domain/entities/DockItem.hpp"
 #include "domain/entities/WindowInstance.hpp"
 
@@ -759,4 +760,30 @@ TEST(DockWindowTrackingTest, DestroyingDockWindowBeforeTrackerStop_ClearsQPointe
         EXPECT_FALSE(tracker->isRunning());
         tracker.reset();
     });
+}
+
+TEST(DockWindowTrackingTest, SensorMask_WhenHidden_EnclosesDockPillHorizontalZone) {
+    int argc = 0;
+    char *argv[] = { nullptr };
+    std::unique_ptr<QGuiApplication> app;
+    if (!qApp) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+        app = std::make_unique<QGuiApplication>(argc, argv);
+    }
+
+    QQuickWindow window;
+    window.resize(1920, 280);
+    cachy_dock::infrastructure::wayland::WaylandSurfaceMaskSynchronizer synchronizer(&window);
+
+    QRectF pillRect(600, 204, 720, 64);
+    // When isSensorActive = true, mask should be collapsed to a 16px high strip around pillRect (600 - 48 = 552 to 600 + 720 + 48 = 1368)
+    synchronizer.updateSurfaceMasks(pillRect, 32.0, 0.42, true, false, true, {});
+
+    QRegion mask = window.mask();
+    EXPECT_FALSE(mask.isEmpty());
+    QRect bounds = mask.boundingRect();
+    EXPECT_EQ(bounds.y(), 280 - 16);
+    EXPECT_EQ(bounds.height(), 16);
+    EXPECT_EQ(bounds.x(), 552);
+    EXPECT_EQ(bounds.width(), 816);
 }
